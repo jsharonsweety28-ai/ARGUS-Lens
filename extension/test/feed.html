@@ -19,12 +19,14 @@
 </style>
 </head>
 <body>
-  <div class="bar">Feedgram<span>a stand-in feed for testing Argus Lens (images made with Muse Image)</span></div>
+  <div class="bar">Feedgram<span>a stand-in feed for testing Argus Lens (images made with Muse Image) · <a href="?auto=1">auto-check on</a> · <a href="?">off</a></span></div>
   <main>
     <article><header><i></i>priya.ships</header><div class="media"><img src="/samples/parcel.webp" alt="A parcel on a doorstep"><div class="cover"></div></div><div class="caption"><b>priya.ships</b> finally got my order 📦</div></article>
     <article><header><i></i>cafe.days</header><div class="media"><img src="/samples/cafe.webp" alt="A woman laughing in a cafe"><div class="cover"></div></div><div class="caption"><b>cafe.days</b> Sunday mornings ☕</div></article>
   </main>
 <script>
+  // /test?auto=1 turns on automatic checks (the extension's settings switch).
+  window.__argusLensAuto = new URLSearchParams(location.search).get('auto') === '1';
   // Outside a real extension, stand in for chrome.runtime: send the image straight to the Lens API.
   if (!window.chrome?.runtime?.sendMessage) {
     window.chrome = { runtime: {

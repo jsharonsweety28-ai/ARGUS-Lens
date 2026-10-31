@@ -79,7 +79,16 @@
     eye.style.left = `${Math.max(4, r.right - 92)}px`;
     eye.style.top = `${Math.max(4, r.top + 10)}px`;
   }
-  eye.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); if (hovered) check(hovered); });
+  eye.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); if (hovered) open(hovered); });
+
+  // The user asked about an image: show what's known (with the outlines), or check it now.
+  function open(img, url) {
+    const s = checked.get(img);
+    if (s?.result) { s.showMarks = true; draw(img); openCard(img, cardHtml(s)); return; }
+    if (s?.pending) return;
+    if (s) { s.chip?.remove(); s.layer?.remove(); checked.delete(img); } // an earlier failed check
+    check(img, url ? { url } : {});
+  }
 
   // Where the picture's pixels actually are on screen: object-fit cover/contain crop or pad it.
   function contentBox(img) {
@@ -91,20 +100,88 @@
     return { x: r.left + (r.width - w) / 2, y: r.top + (r.height - h) / 2, w, h, clip: r };
   }
 
-  async function check(img, url = img.currentSrc || img.src) {
-    const state = { pending: true, showMarks: true, blurOn: true };
+  // A check the user clicked for opens the card. An automatic one only puts the verdict chip on
+  // the image (and blurs private details); the chip opens the card.
+  async function check(img, { url = img.currentSrc || img.src, auto = false } = {}) {
+    const state = { pending: true, auto, showMarks: !auto, blurOn: true };
     checked.set(img, state);
     placeEye();
-    openCard(img, `<p><span class="spin"></span>Checking this image…</p><p class="sub" style="margin:0">Muse Spark looks for AI signs and private details; SAM 3.1 outlines the evidence.</p>`);
+    if (auto) setChip(img, state, 'Checking…', LABEL_STYLE.cant_tell);
+    else openCard(img, `<p><span class="spin"></span>Checking this image…</p><p class="sub" style="margin:0">Muse Spark looks for AI signs and private details; SAM 3.1 outlines the evidence.</p>`);
     let reply;
-    try { reply = await chrome.runtime.sendMessage({ type: 'assess', url }); }
+    try { reply = await chrome.runtime.sendMessage({ type: 'assess', url, auto }); }
     catch { reply = { error: 'Argus Lens was updated or reloaded. Reload this page to use it.' }; }
     state.pending = false;
-    if (reply?.error || !reply?.result) { state.error = reply?.error || 'Argus Lens could not check this image.'; openCard(img, `<p>${esc(state.error)}</p>`); return; }
+    if (reply?.deferred) { // over the per-minute limit: try again later, if it's still on screen
+      state.chip?.remove(); checked.delete(img);
+      setTimeout(() => { if (onScreen(img)) enqueue(img); }, reply.retryInMs + 500);
+      return 'deferred';
+    }
+    if (reply?.error || !reply?.result) {
+      state.error = reply?.error || 'Argus Lens could not check this image.';
+      if (auto) setChip(img, state, "Couldn't check", LABEL_STYLE.unavailable);
+      else openCard(img, `<p>${esc(state.error)}</p>`);
+      return 'error';
+    }
     state.result = reply.result;
     draw(img);
-    openCard(img, cardHtml(state));
+    if (!auto) openCard(img, cardHtml(state));
+    return 'done';
   }
+
+  // The verdict chip on an image: click it to open the card.
+  function setChip(img, state, text, [fg, bg]) {
+    if (!state.chip) {
+      state.chip = document.createElement('button'); state.chip.className = 'chip'; root.appendChild(state.chip);
+      state.chip.addEventListener('click', () => {
+        const s = checked.get(img);
+        if (s?.result) openCard(img, cardHtml(s));
+        else if (s?.error) openCard(img, `<p>${esc(s.error)}</p>`);
+      });
+    }
+    state.chip.style.color = fg; state.chip.style.background = bg;
+    state.chip.textContent = text;
+    position();
+  }
+
+  // --- Automatic checks: each image that comes on screen, once, within the per-minute limit ---
+  let autoOn = false;
+  const onScreen = img => { if (!img.isConnected) return false; const r = img.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.width >= MIN; };
+  const queue = [];
+  let active = 0;
+  function enqueue(img) {
+    if (!autoOn || checked.has(img) || queue.includes(img)) return;
+    queue.push(img); pump();
+  }
+  async function pump() {
+    while (active < 2 && queue.length) {
+      const img = queue.shift();
+      if (checked.has(img) || !big(img) || !onScreen(img)) continue; // scrolled past: picked up again if it comes back
+      active++;
+      check(img, { auto: true }).finally(() => { active--; pump(); });
+    }
+  }
+  const seen = new IntersectionObserver(entries => {
+    for (const e of entries) if (e.isIntersecting) enqueue(e.target);
+  }, { threshold: 0.6 });
+  const watched = new WeakSet();
+  function scan() {
+    if (!autoOn) return;
+    for (const img of document.images) {
+      if (watched.has(img) || img.naturalWidth < 200) continue; // icons, avatars, emoji
+      watched.add(img); seen.observe(img);
+    }
+  }
+  setInterval(scan, 1000);
+  function setAuto(on) {
+    autoOn = on === true;
+    if (autoOn) { scan(); for (const img of document.images) if (big(img) && onScreen(img)) enqueue(img); }
+    else queue.length = 0;
+  }
+  if (chrome.storage?.sync) {
+    chrome.storage.sync.get('auto').then(({ auto }) => setAuto(auto));
+    chrome.storage.onChanged.addListener(changes => { if (changes.auto) setAuto(changes.auto.newValue); });
+  } else setAuto(window.__argusLensAuto); // the test feed
 
   function cardHtml(state) {
     const r = state.result;
@@ -158,23 +235,18 @@
     const blurs = state.blurOn ? regions.map(g => `<div class="blur" data-box="${g.hideBox.join(',')}"></div>`).join('') : '';
     state.layer.innerHTML = `${blurs}<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${marks}</svg>`;
     // The chip: the verdict, kept on the image; click it to reopen the card.
-    if (!state.chip) {
-      state.chip = document.createElement('button'); state.chip.className = 'chip'; root.appendChild(state.chip);
-      state.chip.addEventListener('click', () => openCard(img, cardHtml(state)));
-    }
-    const [fg, bg] = LABEL_STYLE[r.verdict] || LABEL_STYLE.cant_tell;
-    state.chip.style.color = fg; state.chip.style.background = bg;
-    state.chip.textContent = r.harm?.harmful ? `⚠ ${r.label} · private info` : r.label;
-    position();
+    const harmWord = r.harm?.harmful ? (r.harm.category === 'doxxing' ? 'private info' : (HARM[r.harm.category] || 'harmful').toLowerCase()) : '';
+    setChip(img, state, harmWord ? `⚠ ${r.label} · ${harmWord}` : r.label, LABEL_STYLE[r.verdict] || LABEL_STYLE.cant_tell);
   }
 
   // Keep every layer, chip and the card on its image while the page scrolls or the feed moves.
   function position() {
     for (const [img, state] of checked) {
       if (!img.isConnected) { state.layer?.remove(); state.chip?.remove(); checked.delete(img); continue; }
-      if (!state.layer) continue;
       const box = contentBox(img), c = box.clip;
       const visible = c.bottom > 0 && c.top < innerHeight && c.width > 0;
+      if (state.chip) Object.assign(state.chip.style, { display: visible ? 'block' : 'none', left: `${c.left + 10}px`, top: `${Math.min(Math.max(c.top, 0) + 10, c.bottom - 40)}px` }); // stays on the visible part
+      if (!state.layer) continue;
       Object.assign(state.layer.style, { display: visible ? 'block' : 'none', left: `${c.left}px`, top: `${c.top}px`, width: `${c.width}px`, height: `${c.height}px` });
       const svg = state.layer.querySelector('svg');
       if (svg) Object.assign(svg.style, { left: `${box.x - c.left}px`, top: `${box.y - c.top}px`, width: `${box.w}px`, height: `${box.h}px` });
@@ -182,7 +254,6 @@
         const [x1, y1, x2, y2] = b.dataset.box.split(',').map(Number);
         Object.assign(b.style, { left: `${box.x - c.left + x1 * box.w / 1000}px`, top: `${box.y - c.top + y1 * box.h / 1000}px`, width: `${(x2 - x1) * box.w / 1000}px`, height: `${(y2 - y1) * box.h / 1000}px` });
       }
-      if (state.chip) Object.assign(state.chip.style, { display: visible ? 'block' : 'none', left: `${c.left + 10}px`, top: `${Math.min(Math.max(c.top, 0) + 10, c.bottom - 40)}px` }); // stays on the visible part
     }
     const card = root.querySelector('.card');
     if (card && cardFor) {
@@ -203,6 +274,6 @@
   chrome.runtime.onMessage.addListener(msg => {
     if (msg?.type !== 'check') return;
     const img = [...document.images].find(i => i.currentSrc === msg.url || i.src === msg.url);
-    if (img) check(img, msg.url);
+    if (img) open(img, msg.url);
   });
 })();

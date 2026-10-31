@@ -56,13 +56,15 @@ The demo has two sample images, both made with Muse Image for this project: a pa
 
 ## Browser extension
 
-[`extension/`](extension) brings Lens to the feed. On Instagram and Reddit, hover over an image and click **Check**; on any site, right-click an image and choose **Check with Argus Lens**. The verdict sits on the image, the evidence is outlined on it, and private details are **blurred on your screen**. Nothing is checked unless you click, and the extension holds no API key: it sends the image to your Lens server.
+[`extension/`](extension) brings Lens to the feed. On Instagram, Reddit and YouTube, hover over an image and click **Check**; on any site, right-click an image and choose **Check with Argus Lens**. The verdict sits on the image, the evidence is outlined on it, and private details are **blurred on your screen**. The extension holds no API key: it sends the image to your Lens server.
+
+**Automatic checks** (off by default, a switch in the extension's settings): as you scroll your own feed, each image that comes on screen is checked once and gets its verdict label, and private details are blurred, with no clicking. It only reads images your browser has already loaded for you; it never visits pages or collects posts. Automatic checks are capped per minute (10 by default) to protect your API credits, results are remembered so nothing is checked twice, and icons and avatars are skipped.
 
 1. Run the server: `npm run demo`.
 2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and choose the `extension` folder.
 3. Open Instagram or Reddit, hover over an image, click **Check**.
 
-To try it without logging in anywhere, open `http://localhost:8800/test`: a stand-in feed with the two sample images, running the same content script.
+To try it without logging in anywhere, open `http://localhost:8800/test` (or `/test?auto=1` for automatic checks): a stand-in feed with the two sample images, running the same content script.
 
 ## Status
 

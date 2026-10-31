@@ -1,7 +1,13 @@
-const input = document.getElementById('server');
-chrome.storage.sync.get('server').then(({ server }) => { input.value = server || 'http://localhost:8800'; });
-document.getElementById('save').addEventListener('click', async () => {
-  await chrome.storage.sync.set({ server: input.value.trim() });
-  document.getElementById('saved').textContent = 'Saved';
-  setTimeout(() => (document.getElementById('saved').textContent = ''), 1500);
+const $ = id => document.getElementById(id);
+chrome.storage.sync.get(['server', 'auto', 'limit']).then(({ server, auto, limit }) => {
+  $('server').value = server || 'http://localhost:8800';
+  $('auto').checked = auto === true;
+  $('limit').value = limit || 10;
+});
+$('save').addEventListener('click', async () => {
+  const limit = Math.min(60, Math.max(1, Math.round(Number($('limit').value) || 10)));
+  await chrome.storage.sync.set({ server: $('server').value.trim(), auto: $('auto').checked, limit });
+  $('limit').value = limit;
+  $('saved').textContent = 'Saved';
+  setTimeout(() => ($('saved').textContent = ''), 1500);
 });
