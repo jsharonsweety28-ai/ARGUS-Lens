@@ -29,6 +29,13 @@ Look hard for concrete mistakes AI image generators make: malformed or extra fin
 Harmful = graphic violence or gore, sexual content, hate symbols or slurs (including text in the image), threats, doxxing (visible private details such as addresses, phone numbers, ID cards, car number plates, bank cards, boarding passes), encouraging self-harm, or a realistic fake of a real, identifiable person in a damaging situation. Ordinary photos, opinions and jokes are not harmful.
 When it is harmful, list in "harm.regions" each part that would have to be hidden for the rest of the image to be fine to post: each phone number, address, ID card, number plate, slur or hate symbol, gory wound. Box each one tightly (same 0–1000 grid as below), at most 6, and name it plainly ("phone number", "home address", "ID card"). A person's name shown with their address or phone number is part of the private detail: box it too. For text, box the WHOLE block: every line from its first letter to its last character, including postcodes and numbers at the ends of lines. A box that is too big is fine; one that leaves part of an address readable is not. If hiding parts cannot make it fine (the whole image is the problem), return no regions.
 
+Then ask whether the scene could actually happen, the way a sharp person would:
+- Size: is every object the right size next to the people and things around it? (An adult sitting on a small toy, a cat as big as a car, a hand bigger than a head.)
+- Weight and support: could what's shown hold up? (A person resting their full weight on something that would crush, bend or tip over; objects floating with nothing under them.)
+- Physics: do light, shadows, reflections, water, smoke and gravity behave consistently?
+- Context: is it an impossible or absurd situation presented as an ordinary candid photo?
+An impossible scene is a strong sign: list it, explain in plain words why it can't happen, and box the parts involved. Something unlikely but possible (a big inflatable, a staged joke, a costume) is not a sign. Clearly edited jokes or memes that don't pretend to be real photos still count: say they're edited.
+
 Look closely before you answer. Read every piece of text in the image word by word (headlines, signs, labels, small print) and check it: real text is consistent and meaningful; AI text repeats phrases or numbers, contradicts itself, has misspellings, or dissolves into letter-like squiggles. Check every hand (count the fingers, work out whose arm is whose) and every face in a crowd.
 
 Point to the evidence. For each AI mistake you found, give:
