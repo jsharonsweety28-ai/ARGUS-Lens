@@ -94,9 +94,21 @@ assert.equal(r.harm.harmful, true); assert.equal(r.harm.category, 'doxxing');
 
 // SAM outlines refine the boxes; a SAM failure keeps Muse Spark's boxes.
 let asked;
-r = await createLens({ ask: answer({ verdict: 'likely_ai', confidence: 0.9, signs: [sign] }), segment: async (req) => { asked = req; return [{ index: 0, box: [110, 210, 290, 390], path: { d: 'M0 0L1 1', x: 110, y: 105, w: 180, h: 90 } }]; } }).assess(photo);
-assert.equal(asked.width, 1000); assert.equal(asked.height, 500); assert.equal(asked.signs[0].index, 0);
+r = await createLens({ ask: answer({ verdict: 'likely_ai', confidence: 0.9, signs: [sign] }), segment: async (req) => { asked = req; return [{ id: 1, box: [110, 210, 290, 390], path: { d: 'M0 0L1 1', x: 110, y: 105, w: 180, h: 90 } }]; } }).assess(photo);
+assert.equal(asked.width, 1000); assert.equal(asked.height, 500); assert.deepEqual(asked.items, [{ id: 1, box: [100, 200, 300, 400] }]);
 assert.deepEqual(r.signs[0].box, [110, 210, 290, 390]); assert.equal(r.signs[0].path.d, 'M0 0L1 1');
+
+// --- harm: the parts to hide, outlined by SAM, with a hide box that covers both boxes ---
+const doxx = { verdict: 'no_ai_signs', confidence: 0.8, signs: [], harm: { harmful: true, category: 'doxxing', reason: 'A phone number and home address are visible.', regions: [
+  { what: 'phone number', box: [100, 100, 300, 150] }, { what: 'home address', box: [100, 200, 400, 260] }, { what: 'no box' }] } };
+r = await createLens({ ask: answer(doxx), segment: async (req) => { asked = req; return [{ id: 101, box: [90, 95, 320, 160], path: { d: 'M0 0', x: 0, y: 0, w: 1, h: 1 } }]; } }).assess(photo);
+assert.deepEqual(asked.items.map(i => i.id), [101, 102], 'harm regions go to SAM after the AI signs');
+assert.equal(r.harm.regions.length, 2, 'a region with no box cannot be hidden, so it is dropped');
+assert.deepEqual(r.harm.regions[0].box, [90, 95, 320, 160]);
+assert.deepEqual(r.harm.regions[0].hideBox, [80, 85, 330, 170], 'the hide box covers SAM\'s object and Muse Spark\'s box');
+assert.deepEqual(r.harm.regions[1].hideBox, [85, 185, 415, 275], 'without an outline, Muse Spark\'s box (grown) is hidden');
+r = await createLens({ ask: answer({ ...doxx, harm: { ...doxx.harm, harmful: false } }), segment: noSam }).assess(photo);
+assert.equal(r.harm.regions.length, 0, 'nothing is hidden when nothing is harmful');
 r = await createLens({ ask: answer({ verdict: 'likely_ai', confidence: 0.9, signs: [sign] }), segment: async () => { throw new Error('sam down'); } }).assess(photo);
 assert.deepEqual(r.signs[0].box, [100, 200, 300, 400]);
 

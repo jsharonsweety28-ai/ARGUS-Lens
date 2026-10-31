@@ -17,6 +17,10 @@ const send = (res, code, type, body) => { res.writeHead(code, { 'Content-Type': 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (req.method === 'GET' && url.pathname === '/') return send(res, 200, 'text/html; charset=utf-8', fs.readFileSync(path.join(HERE, 'index.html')));
+  const sample = url.pathname.match(/^\/samples\/([a-z-]+\.(webp|jpg|png))$/);
+  if (req.method === 'GET' && sample && fs.existsSync(path.join(HERE, 'samples', sample[1]))) {
+    return send(res, 200, `image/${sample[2] === 'jpg' ? 'jpeg' : sample[2]}`, fs.readFileSync(path.join(HERE, 'samples', sample[1])));
+  }
   if (req.method === 'POST' && url.pathname === '/api/assess') {
     const chunks = []; let size = 0;
     for await (const c of req) { size += c.length; if (size > MAX) return send(res, 413, 'application/json', JSON.stringify({ error: 'Images up to 10 MB.' })); chunks.push(c); }
