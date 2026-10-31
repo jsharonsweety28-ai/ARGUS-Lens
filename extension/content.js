@@ -10,6 +10,13 @@
     no_ai_signs: ['#334155', '#f1f5f9'], cant_tell: ['#334155', '#f1f5f9'], unavailable: ['#92400e', '#fffbeb'],
   };
   const HARM = { violence: 'Graphic violence', sexual: 'Sexual content', hate: 'Hate', threat: 'Threat', doxxing: 'Private information', self_harm: 'Self-harm', deceptive_fake: 'Deceptive fake' };
+  // On other people's posts the viewer isn't posting anything, so the warning says what the image
+  // contains, not "don't share".
+  const HARM_SEEN = {
+    violence: 'Contains graphic violence', sexual: 'Contains sexual content', hate: 'Contains hate',
+    threat: 'Contains a threat', doxxing: "Shows someone's private information", self_harm: 'Encourages self-harm',
+    deceptive_fake: 'May be a deceptive fake',
+  };
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
   // Everything Lens draws lives in one shadow root, so the page's CSS can't touch it.
@@ -190,7 +197,7 @@
     const regions = r.harm?.harmful ? r.harm.regions || [] : [];
     return `<span class="verdict" style="color:${fg};background:${bg}">${esc(r.label)}</span>${sub ? `<span class="sub">${sub}</span>` : ''}
       <p>${esc(r.summary)}</p>
-      ${r.harm?.harmful ? `<div class="harm"><b>Not safe to share: ${esc(HARM[r.harm.category] || 'harmful')}.</b> ${esc(r.harm.reason)}${regions.length ? ' Blurred on your screen.' : ''}</div>` : ''}
+      ${r.harm?.harmful ? `<div class="harm"><b>${esc(HARM_SEEN[r.harm.category] || 'May be harmful')}.</b> ${esc(r.harm.reason)}${regions.length ? ' Blurred on your screen.' : ''}</div>` : ''}
       ${r.signs?.length ? `<h4>Evidence</h4><ol>${r.signs.map((s, i) => `<li><span class="n" style="background:#7c3aed">${i + 1}</span><span><b>${esc(s.what || 'Area')}</b>: ${esc(s.why)}</span></li>`).join('')}</ol>` : ''}
       ${(r.signs?.some(s => s.box) || regions.length) ? `<div class="row">
         ${r.signs?.some(s => s.box) || regions.length ? `<button data-act="marks">${state.showMarks ? 'Hide outlines' : 'Show outlines'}</button>` : ''}
