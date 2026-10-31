@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Argus Lens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#f5f6fa;--surface:#fff;--text:#14161c;--muted:#5d6272;--line:#e3e6ee;
+    --ai:#6d28d9;--ai-bg:#f3efff;--ok:#047857;--ok-bg:#ecfdf5;--unk:#475569;--unk-bg:#f1f5f9;--warn:#b45309;--warn-bg:#fffbeb;--harm:#b91c1c;--harm-bg:#fef2f2;
+    --mark:#7c3aed;--mark-fill:rgba(124,58,237,.28)}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d0f17;--surface:#151826;--text:#eef0f7;--muted:#a1a7bb;--line:#272b3d;
+    --ai:#c4b5fd;--ai-bg:#2a1f4d;--ok:#6ee7b7;--ok-bg:#0f2e25;--unk:#cbd5e1;--unk-bg:#1e2433;--warn:#fcd34d;--warn-bg:#33270e;--harm:#fca5a5;--harm-bg:#3a1517;--mark:#a78bfa;--mark-fill:rgba(167,139,250,.3)}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 Inter,'Segoe UI',system-ui,sans-serif}
+  main{max-width:1100px;margin:0 auto;padding:36px 16px 60px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  header svg{width:34px;height:34px;flex:none}
+  h1{font-size:26px;letter-spacing:-.6px;margin:0}
+  .tag{color:var(--muted);margin:0 0 24px}
+  .grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:start}
+  @media (max-width:820px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .drop{display:grid;place-items:center;text-align:center;min-height:340px;border:2px dashed var(--line);border-radius:14px;cursor:pointer;color:var(--muted);padding:20px}
+  .drop.over{border-color:var(--mark);color:var(--text)}
+  .drop b{color:var(--text)}
+  .stage{position:relative;display:none}
+  .stage img{display:block;width:100%;height:auto;border-radius:10px}
+  .stage svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .again{margin-top:12px;display:none;font:600 14px Inter,sans-serif;background:none;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:8px 14px;cursor:pointer}
+  .verdict{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:18px;padding:8px 14px;border-radius:999px}
+  .v-labelled_ai,.v-likely_ai{background:var(--ai-bg);color:var(--ai)}
+  .v-likely_authentic{background:var(--ok-bg);color:var(--ok)}
+  .v-cant_tell{background:var(--unk-bg);color:var(--unk)}
+  .v-unavailable{background:var(--warn-bg);color:var(--warn)}
+  .certain{font-size:12px;font-weight:600;color:var(--muted);margin-left:6px}
+  .summary{margin:12px 0 4px;font-size:16px}
+  .meta{color:var(--muted);font-size:13px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:22px 0 8px}
+  ol.signs{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+  ol.signs li{display:flex;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;cursor:default}
+  ol.signs li.hot{border-color:var(--mark)}
+  .num{flex:none;width:24px;height:24px;border-radius:50%;background:var(--mark);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700}
+  .what{font-weight:600}
+  .harm{margin-top:16px;padding:12px 14px;border-radius:12px;background:var(--harm-bg);color:var(--harm)}
+  .facts li{margin:4px 0}
+  .steps{list-style:none;padding:0;margin:8px 0 0;color:var(--muted)}
+  .steps li::before{content:'○ ';}
+  .steps li.done::before{content:'● ';color:var(--mark)}
+  .empty{color:var(--muted)}
+  .note{margin-top:22px;font-size:12.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M4 32C12 18 22 12 32 12s20 6 28 20c-8 14-18 20-28 20S12 46 4 32Z" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/><circle cx="32" cy="32" r="10" fill="currentColor"/></svg>
+    <h1>Argus Lens</h1>
+  </header>
+  <p class="tag">Is this image real? Argus Lens shows the evidence, not just a guess.</p>
+
+  <div class="grid">
+    <section class="card">
+      <label class="drop" id="drop" for="file"><div><b>Drop an image here</b><br>or click to choose one, or paste with Ctrl+V<br><span class="meta">JPEG, PNG or WebP, up to 10 MB</span></div></label>
+      <input type="file" id="file" accept="image/jpeg,image/png,image/webp" hidden>
+      <div class="stage" id="stage"><img id="img" alt="The image being checked"><svg id="overlay" aria-hidden="true"></svg></div>
+      <button class="again" id="again" type="button">Check another image</button>
+    </section>
+
+    <section class="card" id="result" aria-live="polite">
+      <p class="empty">The assessment appears here: whether the image is likely AI-generated, why, and whether it's harmful to post.</p>
+    </section>
+  </div>
+  <p class="note">No tool can tell AI images apart with certainty. Argus Lens says "can't tell" rather than guess, and a label written into the file itself is shown as fact.</p>
+</main>
+<script>
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const HARM = { violence: 'Graphic violence', sexual: 'Sexual content', hate: 'Hate', threat: 'Threat', doxxing: 'Private information', self_harm: 'Self-harm', deceptive_fake: 'Deceptive fake' };
+
+  function steps(done) {
+    const names = ['Reading labels in the file', 'Muse Spark is looking at the image', 'SAM 3.1 is outlining the evidence'];
+    $('result').innerHTML = '<p><b>Checking…</b></p><ul class="steps">' + names.map((n, i) => `<li class="${i < done ? 'done' : ''}">${n}</li>`).join('') + '</ul>';
+  }
+
+  async function check(file) {
+    if (!file || !/^image\/(jpeg|png|webp)$/.test(file.type)) { $('result').innerHTML = '<p>Please choose a JPEG, PNG or WebP image.</p>'; return; }
+    const url = URL.createObjectURL(file);
+    $('img').src = url; $('drop').style.display = 'none'; $('stage').style.display = 'block'; $('again').style.display = 'inline-block';
+    $('overlay').innerHTML = '';
+    let s = 1; steps(s); const timer = setInterval(() => steps(Math.min(++s, 2)), 2500);
+    try {
+      const res = await fetch('/api/assess', { method: 'POST', body: file });
+      const r = await res.json();
+      if (!res.ok) throw new Error(r.error || 'Lens could not check this image.');
+      show(r);
+    } catch (e) { $('result').innerHTML = `<p>${esc(e.message)}</p>`; }
+    finally { clearInterval(timer); }
+  }
+
+  function show(r) {
+    const W = r.width || 1000, H = r.height || 1000;
+    const px = (v, size) => v * size / 1000;
+    $('overlay').setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const stroke = Math.max(2, W / 300), font = Math.max(16, W / 26);
+    const inside = (v, size) => Math.min(Math.max(v, font * 0.8), size - font * 0.8); // keep the number badge on the image
+    $('overlay').innerHTML = (r.signs || []).map((s, i) => {
+      if (!s.box) return '';
+      const [x1, y1, x2, y2] = s.box, rx = px(x1, W), ry = px(y1, H), bx = inside(rx, W), by = inside(ry, H);
+      const shape = s.path
+        ? `<g transform="translate(${s.path.x} ${s.path.y}) scale(${s.path.w / s.path.rasterW} ${s.path.h / s.path.rasterH})"><path d="${esc(s.path.d)}" fill="var(--mark-fill)" stroke="var(--mark)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></g>`
+        : `<rect x="${rx}" y="${ry}" width="${px(x2 - x1, W)}" height="${px(y2 - y1, H)}" rx="${stroke * 3}" fill="var(--mark-fill)" stroke="var(--mark)" stroke-width="${stroke}" stroke-dasharray="${stroke * 4} ${stroke * 2}"/>`;
+      return `<g data-i="${i}">${shape}<circle cx="${bx}" cy="${by}" r="${font * 0.75}" fill="var(--mark)"/><text x="${bx}" y="${by}" fill="#fff" font-size="${font}" font-weight="700" text-anchor="middle" dominant-baseline="central">${i + 1}</text></g>`;
+    }).join('');
+
+    const prov = r.provenance || {};
+    const facts = [
+      ...(prov.signals || []).map(s => s.detail),
+      prov.signals && !prov.signals.length ? 'The file carries no AI label or Content Credentials (most images don\'t).' : '',
+    ].filter(Boolean);
+    $('result').innerHTML = `
+      <span class="verdict v-${esc(r.verdict)}">${esc(r.label)}</span>${r.certain ? '<span class="certain">from the file itself</span>' : (r.confidence != null && r.verdict !== 'cant_tell' ? `<span class="certain">${Math.round(r.confidence * 100)}% confident</span>` : '')}
+      <p class="summary">${esc(r.summary)}</p>
+      ${r.kind && r.kind !== 'photo' ? `<p class="meta">Looks like ${r.kind === 'other' ? 'something other than a photo' : 'a ' + esc(r.kind)}, not a photo.</p>` : ''}
+      ${r.harm && r.harm.harmful ? `<div class="harm"><b>${esc(HARM[r.harm.category] || 'Harmful')}:</b> ${esc(r.harm.reason)} It shouldn't be posted.</div>` : ''}
+      ${(r.signs || []).length ? `<h2>Evidence</h2><ol class="signs">${r.signs.map((s, i) => `<li data-i="${i}"><span class="num">${i + 1}</span><span><span class="what">${esc(s.what || 'Area')}</span><br>${esc(s.why)}</span></li>`).join('')}</ol>` : ''}
+      <h2>What the file says</h2><ul class="facts meta">${facts.map(f => `<li>${esc(f)}</li>`).join('')}</ul>`;
+    for (const li of document.querySelectorAll('ol.signs li')) {
+      const g = () => $('overlay').querySelector(`g[data-i="${li.dataset.i}"]`);
+      li.onmouseenter = () => { li.classList.add('hot'); g()?.setAttribute('opacity', '1'); [...$('overlay').children].forEach(x => x !== g() && x.setAttribute('opacity', '.25')); };
+      li.onmouseleave = () => { li.classList.remove('hot'); [...$('overlay').children].forEach(x => x.removeAttribute('opacity')); };
+    }
+  }
+
+  $('file').onchange = e => check(e.target.files[0]);
+  $('again').onclick = () => { $('stage').style.display = 'none'; $('drop').style.display = ''; $('again').style.display = 'none'; $('file').value = ''; $('result').innerHTML = '<p class="empty">Drop another image to check it.</p>'; };
+  const drop = $('drop');
+  drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave = () => drop.classList.remove('over');
+  drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); check(e.dataTransfer.files[0]); };
+  document.onpaste = e => { const f = [...e.clipboardData.files].find(f => f.type.startsWith('image/')); if (f) check(f); };
+</script>
+</body>
+</html>
