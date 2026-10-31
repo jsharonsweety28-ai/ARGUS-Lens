@@ -25,6 +25,14 @@ Built for the **Meta Global AI Developer Hackathon** (Indie Developer track, *Bu
 
 Argus Lens is designed to plug into **Argus**, an earlier project of ours: a comment moderator that checks text before it's posted ([github.com/jsharonsweety28-ai/AI-Moderator](https://github.com/jsharonsweety28-ai/AI-Moderator)). Argus is **prior work, not part of this submission**; none of its code is in this repository.
 
+## What Lens checks
+
+1. **The file** (code, certain): an AI label written into the file (IPTC "trained algorithmic media", which Meta and Muse Image add), Content Credentials (C2PA), image-generator settings. Screenshots and app uploads usually strip these.
+2. **Visible AI marks** (Muse Spark): Meta's "Imagined with AI" label, Snapchat's AI watermark, Gemini's sparkle, DALL·E's coloured squares, "AI generated" stickers. These survive screenshots. Coming from Snapchat or Instagram is not a sign by itself.
+3. **Visual mistakes** (Muse Spark): text read word by word (repeats, nonsense, squiggles), hands and faces, objects merging, warped lines. Smooth skin alone doesn't count when a beauty filter is evident.
+4. **Scene logic** (Muse Spark): could this actually happen? Size next to people, weight and support, physics, context. (An adult sitting on a small toy dinosaur can't.)
+5. **Harm** (Muse Spark + SAM 3.1): private details, hate, violence, threats, outlined and blurred.
+
 ## How it works
 
 ```
