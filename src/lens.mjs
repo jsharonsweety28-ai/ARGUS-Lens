@@ -81,7 +81,9 @@ export function createLens({ ask, segment, minConfidence = 0.6, reasoning = 'med
     }
 
     // Exact outlines for the signs, from SAM 3.1. Best effort: Muse Spark's box stays if this fails.
-    let signs = model ? model.signs : [];
+    // When the file says AI, reasons the model gave for the image looking real would contradict
+    // the verdict, so only the model's AI signs are shown.
+    let signs = model && (!prov.aiLabel || model.verdict === 'likely_ai') ? model.signs : [];
     const boxed = signs.map((s, index) => ({ ...s, index })).filter(s => s.box);
     if (boxed.length && prov.width && prov.height) {
       try {

@@ -72,6 +72,8 @@ assert.equal(r.verdict, 'unavailable', 'junk instead of JSON is a failure, not a
 const labelled = jpeg(800, 800, [[0xe1, bytes('xmp trainedAlgorithmicMedia')]]);
 r = await createLens({ ask: answer({ verdict: 'likely_authentic', confidence: 0.9, signs: [] }), segment: noSam }).assess(labelled);
 assert.equal(r.verdict, 'labelled_ai', "the file's own label beats the model's opinion"); assert.equal(r.certain, true);
+r = await createLens({ ask: answer({ verdict: 'likely_authentic', confidence: 0.9, signs: [{ what: 'skin', why: 'Natural pores.', box: [1, 1, 50, 50] }] }), segment: noSam }).assess(labelled);
+assert.equal(r.signs.length, 0, 'reasons it "looks real" are not shown under an AI label');
 
 r = await createLens({ ask: answer({ verdict: 'maybe', confidence: 7, signs: [{ what: 'x', why: 'odd', box: [-50, 20, 2000, 10] }, { why: '' }], harm: { harmful: true, category: 'made_up' } }), segment: noSam }).assess(photo);
 assert.equal(r.verdict, 'cant_tell'); assert.equal(r.confidence, 1);
