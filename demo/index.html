@@ -74,13 +74,13 @@
 
   <div class="grid">
     <section class="card">
-      <label class="drop" id="drop" for="file"><div><b>Drop an image or video here</b><br>or click to choose one, or paste with Ctrl+V<br><span class="meta">JPEG, PNG or WebP up to 10 MB · MP4 up to 20 MB and 60 seconds</span>
+      <label class="drop" id="drop" for="file"><div><b>Drop an image or video here</b><br>or click to choose one, or paste with Ctrl+V<br><span class="meta">Photos: JPEG, PNG, WebP or GIF up to 10 MB · Videos: MP4, MOV, WebM and more, up to 20 MB and 60 seconds</span>
         <div class="samples">Or try a sample: <button type="button" data-sample="parcel.webp">Parcel with an address</button> <button type="button" data-sample="cafe.webp">Café photo</button> <button type="button" data-sample="parcel-pan.mp4">Video: parcel</button></div></div></label>
-      <input type="file" id="file" accept="image/jpeg,image/png,image/webp,video/mp4" hidden>
+      <input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif,video/*,.mov" hidden>
       <div class="stage" id="stage"><img id="img" alt="The image being checked"><canvas id="safe" aria-label="The image with private or harmful parts blurred"></canvas><svg id="overlay" aria-hidden="true"></svg></div>
       <div class="vstage" id="vstage"><video id="vid" controls playsinline muted></video><canvas id="vblur" aria-hidden="true"></canvas></div>
       <div class="tools" id="tools"><button type="button" id="toggle">Show original</button><button type="button" class="primary" id="download">Download blurred image</button></div>
-      <button class="again" id="again" type="button">Check another image</button>
+      <button class="again" id="again" type="button">Check another file</button>
     </section>
 
     <section class="card" id="result" aria-live="polite">
@@ -100,10 +100,11 @@
   }
 
   async function check(file) {
-    if (file && file.type === 'video/mp4') return checkVideo(file);
+    if (file && (file.type.startsWith('video/') || /\.(mov|mp4|m4v|webm|mkv)$/i.test(file.name))) return checkVideo(file);
     $('vstage').style.display = 'none'; stopVideoBlur(); video = null; $('vid').pause();
     $('toggle').textContent = 'Show original'; $('download').textContent = 'Download blurred image';
-    if (!file || !/^image\/(jpeg|png|webp)$/.test(file.type)) { $('result').innerHTML = '<p>Please choose a JPEG, PNG or WebP image, or an MP4 video.</p>'; return; }
+    if (file && /\.(heic|heif)$/i.test(file.name)) { $('result').innerHTML = '<p>iPhone HEIC photos can\'t be opened in the browser. Share or export the photo as JPEG and try again.</p>'; return; }
+    if (!file || !/^image\/(jpeg|png|webp|gif)$/.test(file.type)) { $('result').innerHTML = '<p>Please choose a photo (JPEG, PNG, WebP or GIF) or a video.</p>'; return; }
     const url = URL.createObjectURL(file);
     $('img').src = url; $('drop').style.display = 'none'; $('stage').style.display = 'block'; $('again').style.display = 'inline-block';
     $('overlay').innerHTML = ''; setSafe(false); $('tools').style.display = 'none';
@@ -166,11 +167,40 @@
   // --- Video: Muse Spark watches it; SAM 3.1 tracks each private object through every frame,
   // and the page blurs that box on each frame as the video plays. ---
   let video = null; // { result, tracks }
+  // MP4 and MOV (iPhone) share one file structure and go as they are; anything else the browser
+  // can play (WebM, MKV…) is re-recorded as MP4 here first, since Muse Spark reads MP4.
+  async function toMp4(file) {
+    if (/^video\/(mp4|quicktime)$/.test(file.type) || /\.(mp4|m4v|mov)$/i.test(file.name)) return file;
+    const type = ['video/mp4;codecs=avc1.42E01F,mp4a.40.2', 'video/mp4;codecs=avc1.42E01F', 'video/mp4'].find(t => MediaRecorder.isTypeSupported(t));
+    if (!type) throw new Error('This browser can\'t convert this video to MP4. Try an MP4 or MOV file.');
+    const v = document.createElement('video');
+    v.src = URL.createObjectURL(file); v.muted = true; v.playsInline = true;
+    await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error('This video can\'t be played in the browser. Try an MP4 or MOV file.')); });
+    // Recorded WebM files often don't store their length (duration = Infinity): seeking to the end
+    // makes the browser work it out.
+    if (!Number.isFinite(v.duration)) {
+      v.currentTime = 1e9; await new Promise(res => v.ondurationchange = () => Number.isFinite(v.duration) && res());
+      v.currentTime = 0; await new Promise(res => v.onseeked = res);
+    }
+    if (v.duration > 60) throw new Error('Videos up to 60 seconds for now.');
+    const rec = new MediaRecorder(v.captureStream(), { mimeType: type, videoBitsPerSecond: 4_000_000 });
+    const chunks = []; rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+    const done = new Promise(res => rec.onstop = res);
+    const tick = setInterval(() => { $('result').innerHTML = `<p><b>Converting to MP4…</b> ${v.currentTime.toFixed(0)} of ${v.duration.toFixed(0)} seconds</p><p class="meta">Lens reads MP4 videos, so this one is re-recorded in your browser first.</p>`; }, 300);
+    rec.start(500); await v.play();
+    await new Promise(res => v.onended = res);
+    rec.stop(); await done; clearInterval(tick);
+    return new File([new Blob(chunks, { type })], file.name.replace(/\.[^.]+$/, '') + '.mp4', { type: 'video/mp4' });
+  }
+
   async function checkVideo(file) {
     const vid = $('vid');
     vid.src = URL.createObjectURL(file);
     $('drop').style.display = 'none'; $('stage').style.display = 'none'; $('vstage').style.display = 'block';
     $('again').style.display = 'inline-block'; $('tools').style.display = 'none'; video = null;
+    try { const mp4 = await toMp4(file); if (mp4 !== file) { file = mp4; vid.src = URL.createObjectURL(file); } } // play what Lens checks, so the blur lines up
+    catch (e) { $('result').innerHTML = `<p>${esc(e.message)}</p>`; return; }
+    if (file.size > 20 * 1024 * 1024) { $('result').innerHTML = '<p>Videos up to 20 MB for now.</p>'; return; }
     const names = ['Muse Spark is watching the video', 'SAM 3.1 is tracking what to hide, frame by frame'];
     let s = 0; const show = () => { $('result').innerHTML = '<p><b>Checking…</b></p><ul class="steps">' + names.map((n, i) => `<li class="${i < s ? 'done' : ''}">${n}</li>`).join('') + '</ul>'; };
     show(); const timer = setInterval(() => { s = Math.min(s + 1, 1); show(); }, 12000);
@@ -311,12 +341,12 @@
     const blob = await (await fetch('/samples/' + b.dataset.sample)).blob();
     check(new File([blob], b.dataset.sample, { type: blob.type }));
   };
-  $('again').onclick = () => { setSafe(false); stopVideoBlur(); video = null; $('vid').pause(); $('vstage').style.display = 'none'; $('tools').style.display = 'none'; $('stage').style.display = 'none'; $('drop').style.display = ''; $('again').style.display = 'none'; $('file').value = ''; $('result').innerHTML = '<p class="empty">Drop another image to check it.</p>'; };
+  $('again').onclick = () => { setSafe(false); stopVideoBlur(); video = null; $('vid').pause(); $('vstage').style.display = 'none'; $('tools').style.display = 'none'; $('stage').style.display = 'none'; $('drop').style.display = ''; $('again').style.display = 'none'; $('file').value = ''; $('result').innerHTML = '<p class="empty">Drop another photo or video to check it.</p>'; };
   const drop = $('drop');
   drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
   drop.ondragleave = () => drop.classList.remove('over');
   drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); check(e.dataTransfer.files[0]); };
-  document.onpaste = e => { const f = [...e.clipboardData.files].find(f => f.type.startsWith('image/')); if (f) check(f); };
+  document.onpaste = e => { const f = [...e.clipboardData.files].find(f => f.type.startsWith('image/') || f.type.startsWith('video/')); if (f) check(f); };
 </script>
 </body>
 </html>

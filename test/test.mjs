@@ -116,7 +116,11 @@ r = await createLens({ ask: answer({ verdict: 'likely_ai', confidence: 0.9, sign
 assert.deepEqual(r.signs[0].box, [100, 200, 300, 400]);
 
 r = await createLens({ ask: answer({}), segment: noSam }).assess(new Uint8Array([0, 1, 2, 3]));
-assert.equal(r.verdict, 'unavailable'); assert.match(r.summary, /not a JPEG, PNG or WebP/);
+assert.equal(r.verdict, 'unavailable'); assert.match(r.summary, /not a JPEG, PNG, WebP or GIF/);
+// GIF: size from the header, and an XMP AI label in an application extension.
+const gif = new Uint8Array([...bytes('GIF89a'), 0x40, 0x01, 0xf0, 0x00, 0, 0, 0, ...bytes('!\xff\x0bXMP DataXMP<x:xmpmeta>trainedAlgorithmicMedia</x:xmpmeta>'), 0x3b]);
+p = provenance(gif);
+assert.equal(p.type, 'gif'); assert.equal(p.width, 320); assert.equal(p.height, 240); assert.equal(p.aiLabel, true);
 
 assert.deepEqual(parseJson('Sure: ```json\n{"a":1}\n``` done'), { a: 1 });
 

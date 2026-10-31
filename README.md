@@ -11,7 +11,9 @@ Argus Lens checks images in social media posts for signs of AI generation and fo
 
 It also checks whether the image is **harmful to post**: private details (an address, a phone number, an ID card, a number plate), hate symbols, gore. When hiding a part would make the rest fine, SAM 3.1 outlines that part and Lens offers a **blurred version** to post instead.
 
-**Video** (MP4, up to 60 seconds): Muse Spark watches the clip, frames and sound, and reports AI signs with the moment they happen, and whether it's harmful to post. When a private detail is visible, **SAM 3.1 tracks that object through every frame**, and the demo plays the video with it **blurred as it moves**, and records a blurred copy you can post instead.
+**Any photo or video from your computer**: the Lens page (and the **Check a file** button in the extension's toolbar panel) takes JPEG, PNG, WebP and GIF photos, and MP4, iPhone MOV, WebM and other videos the browser can play; videos that aren't MP4 or MOV are converted to MP4 in the browser first. (iPhone HEIC photos can't be opened in a browser: export them as JPEG.)
+
+**Video** (up to 60 seconds): Muse Spark watches the clip, frames and sound, and reports AI signs with the moment they happen, and whether it's harmful to post. When a private detail is visible, **SAM 3.1 tracks that object through every frame**, and the demo plays the video with it **blurred as it moves**, and records a blurred copy you can post instead.
 
 There is deliberately no "authentic" verdict: no tool can prove an image is real by looking at it, and telling people a fake is real does more harm than saying "we don't know".
 

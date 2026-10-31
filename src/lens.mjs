@@ -27,7 +27,7 @@ export const LABELS = {
   unavailable: "Couldn't check",
 };
 
-const mimeOf = type => ({ jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' })[type] || 'application/octet-stream';
+const mimeOf = type => ({ jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' })[type] || 'application/octet-stream';
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 // A box on the 0–1000 grid, clamped; null when missing or inside out.
@@ -76,7 +76,7 @@ export function createLens({ ask, segment, minConfidence = 0.6, reasoning = 'med
 
   async function assess(bytes) {
     const prov = provenance(bytes);
-    if (prov.type === 'unknown') return { verdict: 'unavailable', label: LABELS.unavailable, summary: 'This file is not a JPEG, PNG or WebP image.', signs: [], harm: null, provenance: prov };
+    if (prov.type === 'unknown') return { verdict: 'unavailable', label: LABELS.unavailable, summary: 'This file is not a JPEG, PNG, WebP or GIF image.', signs: [], harm: null, provenance: prov };
     const dataUrl = `data:${mimeOf(prov.type)};base64,${Buffer.from(bytes).toString('base64')}`;
 
     let model = null, modelError = null;

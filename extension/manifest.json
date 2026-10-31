@@ -14,5 +14,5 @@
     }
   ],
   "options_page": "options.html",
-  "action": { "default_title": "Argus Lens settings" }
+  "action": { "default_title": "Argus Lens", "default_popup": "popup.html" }
 }

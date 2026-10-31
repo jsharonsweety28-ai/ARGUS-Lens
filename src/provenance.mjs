@@ -28,7 +28,16 @@ export function readImage(bytes) {
   if (b[0] === 0xff && b[1] === 0xd8) return readJpeg(b);
   if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return readPng(b);
   if (ascii(b, 0, 4) === 'RIFF' && ascii(b, 8, 4) === 'WEBP') return readWebp(b);
+  if (ascii(b, 0, 6) === 'GIF87a' || ascii(b, 0, 6) === 'GIF89a') return readGif(b);
   return { type: 'unknown', width: null, height: null, blocks: [] };
+}
+
+// GIF metadata lives in application extensions; XMP is the one AI labels use ("XMP DataXMP").
+function readGif(b) {
+  const width = b[6] | (b[7] << 8), height = b[8] | (b[9] << 8), blocks = [];
+  const at = Buffer.from(b.buffer, b.byteOffset, b.byteLength).indexOf('XMP DataXMP', 0, 'latin1');
+  if (at >= 0) blocks.push({ kind: 'xmp', body: b.subarray(at, Math.min(b.length, at + 65536)) });
+  return { type: 'gif', width, height, blocks };
 }
 
 function ascii(b, at, n) {
