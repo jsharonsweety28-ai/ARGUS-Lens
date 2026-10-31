@@ -13,6 +13,8 @@ Look hard for concrete mistakes AI image generators make: malformed or extra fin
 Harmful = graphic violence or gore, sexual content, hate symbols or slurs (including text in the image), threats, doxxing (visible private details such as addresses, phone numbers, ID cards, car number plates, bank cards, boarding passes), encouraging self-harm, or a realistic fake of a real, identifiable person in a damaging situation. Ordinary photos, opinions and jokes are not harmful.
 When it is harmful, list in "harm.regions" each part that would have to be hidden for the rest of the image to be fine to post: each phone number, address, ID card, number plate, slur or hate symbol, gory wound. Box each one tightly (same 0–1000 grid as below), at most 6, and name it plainly ("phone number", "home address", "ID card"). A person's name shown with their address or phone number is part of the private detail: box it too. If hiding parts cannot make it fine (the whole image is the problem), return no regions.
 
+Look closely before you answer. Read every piece of text in the image word by word (headlines, signs, labels, small print) and check it: real text is consistent and meaningful; AI text repeats phrases or numbers, contradicts itself, has misspellings, or dissolves into letter-like squiggles. Check every hand (count the fingers, work out whose arm is whose) and every face in a crowd.
+
 Point to the evidence. For each AI mistake you found, give:
 - "what": a short noun phrase naming the object or area, the way you would label it ("left hand", "shop sign", "background crowd"),
 - "why": one plain sentence a non-expert understands,
