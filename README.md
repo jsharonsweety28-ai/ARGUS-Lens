@@ -2,7 +2,14 @@
 
 > Is this image real? Argus Lens shows the evidence, not just a guess.
 
-Argus Lens checks images in social media posts for signs of AI generation and for harmful content. Instead of a bare "AI / not AI" label, it gives a careful assessment (**likely AI-generated**, **likely authentic** or **can't tell**) with its reasons, and outlines the exact regions behind them.
+Argus Lens checks images in social media posts for signs of AI generation and for harmful content. Instead of a bare "AI / not AI" label, it gives a careful assessment with the evidence outlined on the image:
+
+- **Labelled as AI-made**: the file itself says so. Certain.
+- **Likely AI-generated**: concrete AI mistakes found, each one outlined.
+- **No signs of AI found**: and Lens says plainly that this doesn't prove the image is real.
+- **Can't tell**: too small, blurry or compressed to inspect.
+
+There is deliberately no "authentic" verdict: no tool can prove an image is real by looking at it, and telling people a fake is real does more harm than saying "we don't know".
 
 Built for the **Meta Global AI Developer Hackathon** (Indie Developer track, *Build for Your World*) on Meta's models.
 
@@ -17,11 +24,11 @@ Argus Lens is designed to plug into **Argus**, an earlier project of ours: a com
 ```
 image file ──► file labels (code)   AI labels written into the file: IPTC "trained algorithmic media",
                                      generator settings, Content Credentials. Certain when present.
-image ───────► Muse Spark           Likely AI / likely authentic / can't tell, why, where the signs are,
+image ───────► Muse Spark           Likely AI / no signs found / can't tell, the AI mistakes and where,
                                      and whether the image is harmful to post.
 each sign ───► SAM 3.1              The exact outline of each area the verdict rests on.
 code ────────► the result           A label in the file beats a guess. A weak guess becomes "can't tell".
-                                     If the model fails, Lens says it couldn't check, never "authentic".
+                                     If the model fails, Lens says it couldn't check. Never "authentic".
 ```
 
 | Meta tool | What Argus Lens uses it for |

@@ -30,8 +30,7 @@
   .again{margin-top:12px;display:none;font:600 14px Inter,sans-serif;background:none;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:8px 14px;cursor:pointer}
   .verdict{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:18px;padding:8px 14px;border-radius:999px}
   .v-labelled_ai,.v-likely_ai{background:var(--ai-bg);color:var(--ai)}
-  .v-likely_authentic{background:var(--ok-bg);color:var(--ok)}
-  .v-cant_tell{background:var(--unk-bg);color:var(--unk)}
+  .v-no_ai_signs,.v-cant_tell{background:var(--unk-bg);color:var(--unk)}
   .v-unavailable{background:var(--warn-bg);color:var(--warn)}
   .certain{font-size:12px;font-weight:600;color:var(--muted);margin-left:6px}
   .summary{margin:12px 0 4px;font-size:16px}
@@ -71,7 +70,7 @@
       <p class="empty">The assessment appears here: whether the image is likely AI-generated, why, and whether it's harmful to post.</p>
     </section>
   </div>
-  <p class="note">No tool can tell AI images apart with certainty. Argus Lens says "can't tell" rather than guess, and a label written into the file itself is shown as fact.</p>
+  <p class="note">No tool can prove an image is real by looking at it. Argus Lens reports AI mistakes it can point to, says "no signs found" or "can't tell" otherwise, and shows a label written into the file itself as fact.</p>
 </main>
 <script>
   const $ = id => document.getElementById(id);
@@ -119,7 +118,7 @@
       prov.signals && !prov.signals.length ? 'The file carries no AI label or Content Credentials (most images don\'t).' : '',
     ].filter(Boolean);
     $('result').innerHTML = `
-      <span class="verdict v-${esc(r.verdict)}">${esc(r.label)}</span>${r.certain ? '<span class="certain">from the file itself</span>' : (r.confidence != null && r.verdict !== 'cant_tell' ? `<span class="certain">${Math.round(r.confidence * 100)}% confident</span>` : '')}
+      <span class="verdict v-${esc(r.verdict)}">${esc(r.label)}</span>${r.certain ? '<span class="certain">from the file itself</span>' : (r.confidence != null && r.verdict === 'likely_ai' ?`<span class="certain">${Math.round(r.confidence * 100)}% confident</span>` : '')}
       <p class="summary">${esc(r.summary)}</p>
       ${r.kind && r.kind !== 'photo' ? `<p class="meta">Looks like ${r.kind === 'other' ? 'something other than a photo' : 'a ' + esc(r.kind)}, not a photo.</p>` : ''}
       ${r.harm && r.harm.harmful ? `<div class="harm"><b>${esc(HARM[r.harm.category] || 'Harmful')}:</b> ${esc(r.harm.reason)} It shouldn't be posted.</div>` : ''}

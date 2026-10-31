@@ -63,6 +63,13 @@ assert.deepEqual(r.signs[0].box, [100, 200, 300, 400]);
 r = await createLens({ ask: answer({ verdict: 'likely_ai', confidence: 0.4, summary: 'Maybe.', signs: [] }), segment: noSam }).assess(photo);
 assert.equal(r.verdict, 'cant_tell', 'a weak guess is reported as "can\'t tell"');
 
+r = await createLens({ ask: answer({ verdict: 'no_ai_signs', confidence: 0.8, summary: 'A studio photo of fruit.', signs: [{ what: 'skin', why: 'Natural pores.', box: [1, 1, 50, 50] }] }), segment: noSam }).assess(photo);
+assert.equal(r.verdict, 'no_ai_signs'); assert.equal(r.label, 'No signs of AI found');
+assert.match(r.summary, /^A studio photo of fruit\. That doesn't prove it's real/);
+assert.equal(r.signs.length, 0, 'no "looks real" evidence is ever listed');
+r = await createLens({ ask: answer({ verdict: 'likely_authentic', confidence: 0.95, signs: [] }), segment: noSam }).assess(photo);
+assert.equal(r.verdict, 'no_ai_signs', 'an "authentic" answer is never passed on as proof');
+
 r = await createLens({ ask: async () => { throw new Error('down'); }, segment: noSam }).assess(photo);
 assert.equal(r.verdict, 'unavailable', 'a model failure never says "authentic"'); assert.match(r.summary, /doesn't mean it's real or fake/);
 
@@ -75,8 +82,10 @@ assert.equal(r.verdict, 'labelled_ai', "the file's own label beats the model's o
 r = await createLens({ ask: answer({ verdict: 'likely_authentic', confidence: 0.9, signs: [{ what: 'skin', why: 'Natural pores.', box: [1, 1, 50, 50] }] }), segment: noSam }).assess(labelled);
 assert.equal(r.signs.length, 0, 'reasons it "looks real" are not shown under an AI label');
 
-r = await createLens({ ask: answer({ verdict: 'maybe', confidence: 7, signs: [{ what: 'x', why: 'odd', box: [-50, 20, 2000, 10] }, { why: '' }], harm: { harmful: true, category: 'made_up' } }), segment: noSam }).assess(photo);
-assert.equal(r.verdict, 'cant_tell'); assert.equal(r.confidence, 1);
+r = await createLens({ ask: answer({ verdict: 'maybe', confidence: 0.9 }), segment: noSam }).assess(photo);
+assert.equal(r.verdict, 'cant_tell', 'an unknown verdict becomes "can\'t tell"');
+r = await createLens({ ask: answer({ verdict: 'likely_ai', confidence: 7, signs: [{ what: 'x', why: 'odd', box: [-50, 20, 2000, 10] }, { why: '' }], harm: { harmful: true, category: 'made_up' } }), segment: noSam }).assess(photo);
+assert.equal(r.verdict, 'likely_ai'); assert.equal(r.confidence, 1);
 assert.equal(r.signs.length, 1, 'a sign with no reason is dropped'); assert.equal(r.signs[0].box, null, 'an inverted box is dropped');
 assert.equal(r.harm.harmful, false, 'an unknown harm category is not counted as harm');
 

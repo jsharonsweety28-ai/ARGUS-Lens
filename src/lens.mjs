@@ -10,14 +10,16 @@ import { MODELS, parseJson, respond, respondEvents } from './meta.mjs';
 import { provenance } from './provenance.mjs';
 import { ASSESS_PROMPT } from './prompts.mjs';
 
-const VERDICTS = ['likely_ai', 'likely_authentic', 'cant_tell'];
+// The model can only say it found AI signs, found none, or can't tell. Looking at a picture
+// can never show it's real, so there is no "authentic" verdict.
+const VERDICTS = ['likely_ai', 'no_ai_signs', 'cant_tell'];
 const HARM = ['none', 'violence', 'sexual', 'hate', 'threat', 'doxxing', 'self_harm', 'deceptive_fake'];
 
 // Plain words for each verdict, shown to the viewer.
 export const LABELS = {
   labelled_ai: 'Labelled as AI-made',
   likely_ai: 'Likely AI-generated',
-  likely_authentic: 'Likely authentic',
+  no_ai_signs: 'No signs of AI found',
   cant_tell: "Can't tell",
   unavailable: "Couldn't check",
 };
@@ -35,8 +37,10 @@ function cleanAssessment(raw) {
   });
   const harm = raw.harm && typeof raw.harm === 'object' ? raw.harm : {};
   const category = HARM.includes(harm.category) ? harm.category : 'none';
+  // An older or off-script "authentic" answer is read as "no signs found", never as proof.
+  const verdict = raw.verdict === 'likely_authentic' ? 'no_ai_signs' : VERDICTS.includes(raw.verdict) ? raw.verdict : 'cant_tell';
   return {
-    verdict: VERDICTS.includes(raw.verdict) ? raw.verdict : 'cant_tell',
+    verdict,
     confidence: Number.isFinite(raw.confidence) ? clamp(raw.confidence, 0, 1) : 0,
     kind: typeof raw.kind === 'string' ? raw.kind : 'other',
     summary: typeof raw.summary === 'string' ? raw.summary.trim() : '',
@@ -76,14 +80,14 @@ export function createLens({ ask, segment, minConfidence = 0.6, reasoning = 'med
       verdict = 'unavailable';
       summary = "We couldn't check this image right now. That doesn't mean it's real or fake.";
     } else {
-      verdict = model.verdict !== 'cant_tell' && model.confidence < minConfidence ? 'cant_tell' : model.verdict;
+      verdict = model.verdict === 'likely_ai' && model.confidence < minConfidence ? 'cant_tell' : model.verdict;
       summary = model.summary || (verdict === 'cant_tell' ? "There aren't enough clear signs either way." : '');
+      if (verdict === 'no_ai_signs') summary = `${summary ? summary.replace(/\.?$/, '. ') : ''}That doesn't prove it's real: AI images can look flawless.`;
     }
 
     // Exact outlines for the signs, from SAM 3.1. Best effort: Muse Spark's box stays if this fails.
-    // When the file says AI, reasons the model gave for the image looking real would contradict
-    // the verdict, so only the model's AI signs are shown.
-    let signs = model && (!prov.aiLabel || model.verdict === 'likely_ai') ? model.signs : [];
+    // Evidence = AI mistakes only: a list of reasons an image "looks real" would read as proof.
+    let signs = model && model.verdict === 'likely_ai' ? model.signs : [];
     const boxed = signs.map((s, index) => ({ ...s, index })).filter(s => s.box);
     if (boxed.length && prov.width && prov.height) {
       try {
