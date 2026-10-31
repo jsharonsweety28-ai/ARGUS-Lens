@@ -15,6 +15,8 @@
   /* Like Instagram: a square crop of the photo, with a transparent layer on top of it. */
   .media img{width:100%;height:100%;object-fit:cover;display:block}
   .media .cover{position:absolute;inset:0}
+  .media.wide{aspect-ratio:16/9}
+  .media video{width:100%;height:100%;display:block}
   .caption{padding:10px 12px}
 </style>
 </head>
@@ -22,6 +24,7 @@
   <div class="bar">Feedgram<span>a stand-in feed for testing Argus Lens (images made with Muse Image) · <a href="?auto=1">auto-check on</a> · <a href="?">off</a></span></div>
   <main>
     <article><header><i></i>priya.ships</header><div class="media"><img src="/samples/parcel.webp" alt="A parcel on a doorstep"><div class="cover"></div></div><div class="caption"><b>priya.ships</b> finally got my order 📦</div></article>
+    <article><header><i></i>priya.ships</header><div class="media wide"><video src="/samples/parcel-pan.mp4" muted loop playsinline controls></video></div><div class="caption"><b>priya.ships</b> unboxing day! 🎥</div></article>
     <article><header><i></i>cafe.days</header><div class="media"><img src="/samples/cafe.webp" alt="A woman laughing in a cafe"><div class="cover"></div></div><div class="caption"><b>cafe.days</b> Sunday mornings ☕</div></article>
   </main>
 <script>
@@ -29,8 +32,21 @@
   window.__argusLensAuto = new URLSearchParams(location.search).get('auto') === '1';
   // Outside a real extension, stand in for chrome.runtime: send the image straight to the Lens API.
   if (!window.chrome?.runtime?.sendMessage) {
+    let frame = null; // stands in for the background script's screenshot of the video's box
     window.chrome = { runtime: {
       sendMessage: async msg => {
+        if (msg.type === 'captureFrame') {
+          const v = document.elementsFromPoint(msg.rect.x + msg.rect.width / 2, msg.rect.y + msg.rect.height / 2).find(e => e.tagName === 'VIDEO');
+          const c = document.createElement('canvas'); c.width = Math.round(msg.rect.width * msg.dpr); c.height = Math.round(msg.rect.height * msg.dpr);
+          c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+          frame = await new Promise(r => c.toBlob(r, 'image/png'));
+          return { ok: true };
+        }
+        if (msg.type === 'assessFrame') {
+          const res = await fetch('/api/assess', { method: 'POST', body: frame });
+          const data = await res.json();
+          return res.ok ? { result: data } : { error: data.error };
+        }
         try {
           const blob = await (await fetch(msg.url)).blob();
           const res = await fetch('/api/assess', { method: 'POST', body: blob });

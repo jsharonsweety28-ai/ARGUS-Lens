@@ -61,6 +61,8 @@ The demo has three samples, all made for this project: a parcel whose shipping l
 
 [`extension/`](extension) brings Lens to the feed. On Instagram, Reddit and YouTube, hover over an image and click **Check**; on any site, right-click an image and choose **Check with Argus Lens**. The verdict sits on the image, the evidence is outlined on it, and private details are **blurred on your screen**. The extension holds no API key: it sends the image to your Lens server.
 
+**Videos in the feed**: hover over a video and click **Check frame**. Lens pauses it, takes a screenshot of just the video's box (only what's on your screen; nothing is downloaded from the site), and checks that frame: the verdict, outlines and private-detail blur appear on the paused video, and clear when you press play.
+
 **Automatic checks** (off by default, a switch in the extension's settings): as you scroll your own feed, each image that comes on screen is checked once and gets its verdict label, and private details are blurred, with no clicking. It only reads images your browser has already loaded for you; it never visits pages or collects posts. Automatic checks are capped per minute (10 by default) to protect your API credits, results are remembered so nothing is checked twice, and icons and avatars are skipped.
 
 1. Run the server: `npm run demo`.

@@ -19,12 +19,7 @@ async function imageBytes(url) {
 async function assess(url) {
   const blob = await imageBytes(url);
   if (blob.size > 10 * 1024 * 1024) throw new Error('Images up to 10 MB.');
-  let res;
-  try { res = await fetch(`${await server()}/api/assess`, { method: 'POST', body: blob }); }
-  catch { throw new Error("Can't reach the Argus Lens server. Check it's running, and its address in the extension's settings."); }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Argus Lens could not check this image.');
-  return data;
+  return assessBlob(blob);
 }
 
 // Each image is checked once: results are remembered by image address (and a check already
@@ -64,11 +59,43 @@ async function handle({ url, auto }) {
   finally { running.delete(url); }
 }
 
-chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
-  if (msg?.type !== 'assess') return;
-  handle(msg).then(reply, err => reply({ error: err.message }));
-  return true; // reply asynchronously
+// A video frame: a screenshot of the visible tab, cropped to the video's box. Only what's on the
+// user's screen; nothing is downloaded from the site.
+async function captureFrame(tab, rect, dpr) {
+  const shot = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+  const bitmap = await createImageBitmap(await (await fetch(shot)).blob());
+  const x = Math.max(0, Math.round(rect.x * dpr)), y = Math.max(0, Math.round(rect.y * dpr));
+  const w = Math.min(bitmap.width - x, Math.round(rect.width * dpr)), h = Math.min(bitmap.height - y, Math.round(rect.height * dpr));
+  if (w < 50 || h < 50) throw new Error('The video is too small or off screen to check.');
+  const canvas = new OffscreenCanvas(w, h);
+  canvas.getContext('2d').drawImage(bitmap, x, y, w, h, 0, 0, w, h);
+  return canvas.convertToBlob({ type: 'image/png' });
+}
+
+async function assessBlob(blob) {
+  let res;
+  try { res = await fetch(`${await server()}/api/assess`, { method: 'POST', body: blob }); }
+  catch { throw new Error("Can't reach the Argus Lens server. Check it's running, and its address in the extension's settings."); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Argus Lens could not check this.');
+  return data;
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg?.type === 'assess') { handle(msg).then(reply, err => reply({ error: err.message })); return true; }
+  if (msg?.type === 'captureFrame') {
+    // Step 1 replies as soon as the screenshot is taken, so the page can show its buttons again.
+    captureFrame(sender.tab, msg.rect, msg.dpr).then(blob => { frames.set(sender.tab.id, blob); reply({ ok: true }); }, err => reply({ error: err.message }));
+    return true;
+  }
+  if (msg?.type === 'assessFrame') {
+    const blob = frames.get(sender.tab.id); frames.delete(sender.tab.id);
+    if (!blob) { reply({ error: 'No frame was captured.' }); return; }
+    assessBlob(blob).then(result => reply({ result }), err => reply({ error: err.message }));
+    return true;
+  }
 });
+const frames = new Map(); // tab id → the frame just captured
 
 // Right-click any image, on any site.
 chrome.runtime.onInstalled.addListener(() => {

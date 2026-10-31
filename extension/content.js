@@ -62,10 +62,13 @@
   const checked = new Map();
   let hovered = null;
 
-  const big = el => el?.tagName === 'IMG' && el.naturalWidth >= 200 && el.getBoundingClientRect().width >= MIN && el.getBoundingClientRect().height >= MIN;
+  const bigEnough = el => el.getBoundingClientRect().width >= MIN && el.getBoundingClientRect().height >= MIN;
+  const big = el => el?.tagName === 'IMG' && el.naturalWidth >= 200 && bigEnough(el);
+  const bigVideo = el => el?.tagName === 'VIDEO' && el.videoWidth >= 200 && bigEnough(el);
+  const fmt = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
   // Instagram and Reddit put transparent layers over their images, so find the image under the
   // pointer rather than trusting the event target.
-  const imageAt = (x, y) => document.elementsFromPoint(x, y).find(big);
+  const imageAt = (x, y) => document.elementsFromPoint(x, y).find(el => big(el) || bigVideo(el));
 
   let raf = 0;
   document.addEventListener('mousemove', e => {
@@ -83,13 +86,15 @@
     if (!hovered || checked.get(hovered)?.pending) { eye.style.display = 'none'; return; }
     const r = hovered.getBoundingClientRect();
     eye.style.display = 'inline-flex';
-    eye.style.left = `${Math.max(4, r.right - 92)}px`;
+    eye.lastChild.textContent = hovered.tagName === 'VIDEO' ? 'Check frame' : 'Check';
+    eye.style.left = `${Math.max(4, r.right - (hovered.tagName === 'VIDEO' ? 130 : 92))}px`;
     eye.style.top = `${Math.max(4, r.top + 10)}px`;
   }
   eye.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); if (hovered) open(hovered); });
 
   // The user asked about an image: show what's known (with the outlines), or check it now.
   function open(img, url) {
+    if (img.tagName === 'VIDEO') return checkFrame(img);
     const s = checked.get(img);
     if (s?.result) { s.showMarks = true; draw(img); openCard(img, cardHtml(s)); return; }
     if (s?.pending) return;
@@ -98,8 +103,11 @@
   }
 
   // Where the picture's pixels actually are on screen: object-fit cover/contain crop or pad it.
+  // A video frame was captured as exactly the element's box, so it maps onto that box.
   function contentBox(img) {
-    const r = img.getBoundingClientRect(), fit = getComputedStyle(img).objectFit;
+    const r = img.getBoundingClientRect();
+    if (img.tagName === 'VIDEO') return { x: r.left, y: r.top, w: r.width, h: r.height, clip: r };
+    const fit = getComputedStyle(img).objectFit;
     const nw = img.naturalWidth, nh = img.naturalHeight;
     if (fit !== 'cover' && fit !== 'contain') return { x: r.left, y: r.top, w: r.width, h: r.height, clip: r };
     const s = fit === 'cover' ? Math.max(r.width / nw, r.height / nh) : Math.min(r.width / nw, r.height / nh);
@@ -134,6 +142,38 @@
     draw(img);
     if (!auto) openCard(img, cardHtml(state));
     return 'done';
+  }
+
+  // --- Video: check the frame on screen. Pause, hide Lens's own buttons, screenshot the video's
+  // box (the background script crops the visible tab), then check it like an image. ---
+  const nextFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  async function checkFrame(video) {
+    const old = checked.get(video);
+    if (old?.pending) return;
+    if (old) { old.chip?.remove(); old.layer?.remove(); }
+    video.pause();
+    const state = { pending: true, frame: true, at: video.currentTime, showMarks: true, blurOn: true };
+    checked.set(video, state);
+    // Lens's own button and cards must not end up in the screenshot.
+    host.style.visibility = 'hidden';
+    await nextFrame();
+    const r = video.getBoundingClientRect();
+    let shot;
+    try { shot = await chrome.runtime.sendMessage({ type: 'captureFrame', rect: { x: r.left, y: r.top, width: r.width, height: r.height }, dpr: devicePixelRatio || 1 }); }
+    catch { shot = { error: 'Argus Lens was updated or reloaded. Reload this page to use it.' }; }
+    host.style.visibility = '';
+    if (shot?.error) { state.pending = false; state.error = shot.error; openCard(video, `<p>${esc(shot.error)}</p>`); return; }
+    openCard(video, `<p><span class="spin"></span>Checking the frame at ${fmt(state.at)}…</p><p class="sub" style="margin:0">Muse Spark looks for AI signs and private details; SAM 3.1 outlines the evidence.</p>`);
+    let reply;
+    try { reply = await chrome.runtime.sendMessage({ type: 'assessFrame' }); }
+    catch { reply = { error: 'Argus Lens was updated or reloaded. Reload this page to use it.' }; }
+    state.pending = false;
+    if (reply?.error || !reply?.result) { state.error = reply?.error || 'Argus Lens could not check this frame.'; openCard(video, `<p>${esc(state.error)}</p>`); return; }
+    state.result = reply.result;
+    draw(video);
+    openCard(video, cardHtml(state));
+    // Once the video plays on, the outlines and blur no longer match what's on screen.
+    video.addEventListener('play', () => { if (checked.get(video) === state) { state.showMarks = false; state.blurOn = false; draw(video); } }, { once: true });
   }
 
   // The verdict chip on an image: click it to open the card.
@@ -197,6 +237,7 @@
     const regions = r.harm?.harmful ? r.harm.regions || [] : [];
     return `<span class="verdict" style="color:${fg};background:${bg}">${esc(r.label)}</span>${sub ? `<span class="sub">${sub}</span>` : ''}
       <p>${esc(r.summary)}</p>
+      ${state.frame ? `<p class="sub" style="margin:0 0 8px">This is the frame at ${fmt(state.at)}. Press play and the outlines clear; check another frame any time.</p>` : ''}
       ${r.harm?.harmful ? `<div class="harm"><b>${esc(HARM_SEEN[r.harm.category] || 'May be harmful')}.</b> ${esc(r.harm.reason)}${regions.length ? ' Blurred on your screen.' : ''}</div>` : ''}
       ${r.signs?.length ? `<h4>Evidence</h4><ol>${r.signs.map((s, i) => `<li><span class="n" style="background:#7c3aed">${i + 1}</span><span><b>${esc(s.what || 'Area')}</b>: ${esc(s.why)}</span></li>`).join('')}</ol>` : ''}
       ${(r.signs?.some(s => s.box) || regions.length) ? `<div class="row">
@@ -243,7 +284,8 @@
     state.layer.innerHTML = `${blurs}<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${marks}</svg>`;
     // The chip: the verdict, kept on the image; click it to reopen the card.
     const harmWord = r.harm?.harmful ? (r.harm.category === 'doxxing' ? 'private info' : (HARM[r.harm.category] || 'harmful').toLowerCase()) : '';
-    setChip(img, state, harmWord ? `⚠ ${r.label} · ${harmWord}` : r.label, LABEL_STYLE[r.verdict] || LABEL_STYLE.cant_tell);
+    const text = harmWord ? `⚠ ${r.label} · ${harmWord}` : r.label;
+    setChip(img, state, state.frame ? `${fmt(state.at)} frame · ${text}` : text, LABEL_STYLE[r.verdict] || LABEL_STYLE.cant_tell);
   }
 
   // Keep every layer, chip and the card on its image while the page scrolls or the feed moves.

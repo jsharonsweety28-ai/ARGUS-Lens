@@ -107,8 +107,9 @@ r = await createLens({ ask: answer(doxx), segment: async (req) => { asked = req;
 assert.deepEqual(asked.items.map(i => i.id), [101, 102], 'harm regions go to SAM after the AI signs');
 assert.equal(r.harm.regions.length, 2, 'a region with no box cannot be hidden, so it is dropped');
 assert.deepEqual(r.harm.regions[0].box, [90, 95, 320, 160]);
-assert.deepEqual(r.harm.regions[0].hideBox, [80, 85, 330, 170], 'the hide box covers SAM\'s object and Muse Spark\'s box');
-assert.deepEqual(r.harm.regions[1].hideBox, [85, 185, 415, 275], 'without an outline, Muse Spark\'s box (grown) is hidden');
+// Grown 25% of the width each side (line ends are what boxes cut off) and 15% of the height (at least 15).
+assert.deepEqual(r.harm.regions[0].hideBox, [32, 80, 378, 175], 'the hide box covers SAM\'s object and Muse Spark\'s box, both grown');
+assert.deepEqual(r.harm.regions[1].hideBox, [25, 185, 475, 275], 'without an outline, Muse Spark\'s box (grown) is hidden');
 r = await createLens({ ask: answer({ ...doxx, harm: { ...doxx.harm, harmful: false } }), segment: noSam }).assess(photo);
 assert.equal(r.harm.regions.length, 0, 'nothing is hidden when nothing is harmful');
 r = await createLens({ ask: answer({ verdict: 'likely_ai', confidence: 0.9, signs: [sign] }), segment: async () => { throw new Error('sam down'); } }).assess(photo);

@@ -102,7 +102,7 @@ export function createLens({ ask, segment, minConfidence = 0.6, reasoning = 'med
     let harm = model ? model.harm : null;
     // Each harmful part is hidden by its hide box: Muse Spark's box, grown a little, so a
     // detail it boxed loosely is still fully covered.
-    if (harm) harm = { ...harm, regions: harm.regions.map(r => ({ ...r, hideBox: grow(r.box, 15) })) };
+    if (harm) harm = { ...harm, regions: harm.regions.map(r => ({ ...r, hideBox: growText(r.box) })) };
 
     // Exact outlines from SAM 3.1, for the AI signs (ids 1…) and the harmful parts (ids 101…),
     // in one request. Best effort: if it fails, Muse Spark's boxes stay.
@@ -117,7 +117,7 @@ export function createLens({ ask, segment, minConfidence = 0.6, reasoning = 'med
         signs = signs.map((s, i) => ({ ...s, ...outline(i + 1) }));
         // The hide box covers both SAM's object and Muse Spark's box: hiding a little too much is fine,
         // leaving part of a phone number visible is not.
-        if (harm) harm = { ...harm, regions: harm.regions.map((r, i) => { const o = outline(101 + i); return o.box ? { ...r, ...o, hideBox: union(r.hideBox, grow(o.box, 10)) } : r; }) };
+        if (harm) harm = { ...harm, regions: harm.regions.map((r, i) => { const o = outline(101 + i); return o.box ? { ...r, ...o, hideBox: union(r.hideBox, growText(o.box)) } : r; }) };
       } catch { /* keep Muse Spark's boxes */ }
     }
 
@@ -217,6 +217,13 @@ export async function samTrack({ videoUrl, what, width, height }) {
 }
 
 const grow = (b, by) => [clamp(b[0] - by, 0, 1000), clamp(b[1] - by, 0, 1000), clamp(b[2] + by, 0, 1000), clamp(b[3] + by, 0, 1000)];
+// A hide box: private details are mostly lines of text, and the ends of lines (postcodes,
+// house numbers) are what boxes cut off, so it grows more sideways than up and down:
+// 25% of the box's width each side (at least 20 on the 0–1000 grid), 15% of its height.
+const growText = b => {
+  const w = b[2] - b[0], h = b[3] - b[1], dx = Math.max(20, Math.round(w * 0.25)), dy = Math.max(15, Math.round(h * 0.15));
+  return [clamp(b[0] - dx, 0, 1000), clamp(b[1] - dy, 0, 1000), clamp(b[2] + dx, 0, 1000), clamp(b[3] + dy, 0, 1000)];
+};
 const union = (a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
 
 /**
