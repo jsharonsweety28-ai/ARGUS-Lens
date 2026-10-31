@@ -57,6 +57,8 @@
   .tools button{font:600 14px Inter,sans-serif;border-radius:10px;padding:8px 14px;cursor:pointer;border:1px solid var(--line);background:none;color:var(--text)}
   .tools button.primary{background:var(--harm);border-color:var(--harm);color:var(--surface)}
   .facts li{margin:4px 0}
+  .edits{margin-top:12px;padding:10px 14px;border-radius:12px;background:var(--unk-bg);color:var(--text);font-size:14px}
+  .edits p{margin:0}.edits p+p{margin-top:6px}
   .steps{list-style:none;padding:0;margin:8px 0 0;color:var(--muted)}
   .steps li::before{content:'○ ';}
   .steps li.done::before{content:'● ';color:var(--mark)}
@@ -118,6 +120,15 @@
     finally { clearInterval(timer); }
   }
 
+  // Filters and app edits: told to the viewer, kept apart from the AI verdict.
+  function editsHtml(edits) {
+    if (!edits || !edits.length) return '';
+    const plain = edits.filter(e => e.type !== 'ai_lens'), ai = edits.filter(e => e.type === 'ai_lens');
+    return `<div class="edits">
+      ${plain.length ? `<p><b>Edited with ${plain.length === 1 ? 'a filter' : 'filters'}:</b> ${plain.map(e => esc(e.what)).join(', ')}. ${ai.length ? '' : 'A filter changes how a photo looks; on its own it doesn\'t mean the photo is AI-made.'}</p>` : ''}
+      ${ai.length ? `<p><b>AI lens:</b> ${ai.map(e => esc(e.what)).join(', ')}. An AI lens redraws the picture, so it counts as AI-made.</p>` : ''}</div>`;
+  }
+
   function show(r) {
     const W = r.width || 1000, H = r.height || 1000;
     const px = (v, size) => v * size / 1000;
@@ -153,6 +164,7 @@
       <span class="verdict v-${esc(r.verdict)}">${esc(r.label)}</span>${r.certain ? '<span class="certain">from the file itself</span>' : (r.confidence != null && r.verdict === 'likely_ai' ?`<span class="certain">${Math.round(r.confidence * 100)}% confident</span>` : '')}
       <p class="summary">${esc(r.summary)}</p>
       ${r.kind && r.kind !== 'photo' ? `<p class="meta">Looks like ${r.kind === 'other' ? 'something other than a photo' : 'a ' + esc(r.kind)}, not a photo.</p>` : ''}
+      ${editsHtml(r.edits)}
       ${r.harm && r.harm.harmful ? `<div class="harm"><h3>Not safe to post: ${esc(HARM[r.harm.category] || 'harmful')}</h3>${esc(r.harm.reason)}
         ${r.harm.regions.length ? ` The parts below are blurred in the safe version.<ol class="signs" style="margin-top:10px">${r.harm.regions.map((g, i) => `<li><span class="num">${i + 1}</span><span class="what">${esc(g.what)}</span></li>`).join('')}</ol>` : ' Hiding parts of it wouldn\'t make it safe.'}</div>` : ''}
       ${(r.signs || []).length ? `<h2>Evidence</h2><ol class="signs">${r.signs.map((s, i) => `<li data-i="${i}"><span class="num">${i + 1}</span><span><span class="what">${esc(s.what || 'Area')}</span><br>${esc(s.why)}</span></li>`).join('')}</ol>` : ''}

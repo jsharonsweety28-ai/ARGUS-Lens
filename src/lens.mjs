@@ -16,6 +16,7 @@ import { ASSESS_PROMPT, VIDEO_PROMPT } from './prompts.mjs';
 // The model can only say it found AI signs, found none, or can't tell. Looking at a picture
 // can never show it's real, so there is no "authentic" verdict.
 const VERDICTS = ['likely_ai', 'no_ai_signs', 'cant_tell'];
+const EDIT_TYPES = ['color_filter', 'beauty_filter', 'ar_lens', 'ai_lens', 'stickers_or_text'];
 const HARM = ['none', 'violence', 'sexual', 'hate', 'threat', 'doxxing', 'self_harm', 'deceptive_fake'];
 
 // Plain words for each verdict, shown to the viewer.
@@ -51,8 +52,14 @@ function cleanAssessment(raw) {
     : [];
   // An older or off-script "authentic" answer is read as "no signs found", never as proof.
   const verdict = raw.verdict === 'likely_authentic' ? 'no_ai_signs' : VERDICTS.includes(raw.verdict) ? raw.verdict : 'cant_tell';
+  // Filters, lenses and app edits: reported to the viewer, and not AI generation (except an AI lens).
+  const edits = (Array.isArray(raw.edits) ? raw.edits : []).slice(0, 4).flatMap(e => {
+    const type = EDIT_TYPES.includes(e?.type) ? e.type : null, what = typeof e?.what === 'string' ? e.what.trim().slice(0, 60) : '';
+    return type && what ? [{ type, what }] : [];
+  });
   return {
     verdict,
+    edits,
     confidence: Number.isFinite(raw.confidence) ? clamp(raw.confidence, 0, 1) : 0,
     kind: typeof raw.kind === 'string' ? raw.kind : 'other',
     summary: typeof raw.summary === 'string' ? raw.summary.trim() : '',
@@ -125,6 +132,7 @@ export function createLens({ ask, segment, minConfidence = 0.6, reasoning = 'med
       verdict, label: LABELS[verdict], certain, summary,
       confidence: model ? model.confidence : null,
       kind: model ? model.kind : null,
+      edits: model ? model.edits : [],
       signs, harm,
       provenance: prov,
       width: prov.width, height: prov.height,

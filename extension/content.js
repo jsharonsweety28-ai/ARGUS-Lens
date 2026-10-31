@@ -47,6 +47,7 @@
     li{display:flex;gap:8px}
     .n{flex:none;width:20px;height:20px;border-radius:50%;color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
     .harm{margin-top:10px;padding:10px 12px;border-radius:10px;background:#fef2f2;color:#991b1b}
+    .edits{margin:8px 0;padding:8px 10px;border-radius:10px;background:#f1f5f9;font-size:13px}
     .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
     .row button{font:600 12.5px inherit;border-radius:8px;padding:6px 10px;border:1px solid #e3e6ee;background:#fff;color:#14161c;cursor:pointer}
     .spin{display:inline-block;width:14px;height:14px;border:2px solid #c4b5fd;border-top-color:#6d28d9;border-radius:50%;animation:s 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
@@ -230,6 +231,13 @@
     chrome.storage.onChanged.addListener(changes => { if (changes.auto) setAuto(changes.auto.newValue); });
   } else setAuto(window.__argusLensAuto); // the test feed
 
+  // Filters and app edits, kept apart from the AI verdict: a filter isn't AI; an AI lens is.
+  function editsLine(edits) {
+    if (!edits?.length) return '';
+    const plain = edits.filter(e => e.type !== 'ai_lens'), ai = edits.filter(e => e.type === 'ai_lens');
+    return `<p class="edits">${plain.length ? `<b>Filter:</b> ${plain.map(e => esc(e.what)).join(', ')}.${ai.length ? '' : ' A filter alone doesn\'t make a photo AI-made.'}` : ''}${ai.length ? ` <b>AI lens:</b> ${ai.map(e => esc(e.what)).join(', ')}, which redraws the picture.` : ''}</p>`;
+  }
+
   function cardHtml(state) {
     const r = state.result;
     const [fg, bg] = LABEL_STYLE[r.verdict] || LABEL_STYLE.cant_tell;
@@ -237,6 +245,7 @@
     const regions = r.harm?.harmful ? r.harm.regions || [] : [];
     return `<span class="verdict" style="color:${fg};background:${bg}">${esc(r.label)}</span>${sub ? `<span class="sub">${sub}</span>` : ''}
       <p>${esc(r.summary)}</p>
+      ${editsLine(r.edits)}
       ${state.frame ? `<p class="sub" style="margin:0 0 8px">This is the frame at ${fmt(state.at)}. Press play and the outlines clear; check another frame any time.</p>` : ''}
       ${r.harm?.harmful ? `<div class="harm"><b>${esc(HARM_SEEN[r.harm.category] || 'May be harmful')}.</b> ${esc(r.harm.reason)}${regions.length ? ' Blurred on your screen.' : ''}</div>` : ''}
       ${r.signs?.length ? `<h4>Evidence</h4><ol>${r.signs.map((s, i) => `<li><span class="n" style="background:#7c3aed">${i + 1}</span><span><b>${esc(s.what || 'Area')}</b>: ${esc(s.why)}</span></li>`).join('')}</ol>` : ''}

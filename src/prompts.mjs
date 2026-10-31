@@ -33,6 +33,8 @@ Look for visible AI marks stamped on the image itself (they survive screenshots)
 
 Beauty filters (common on Snapchat and Instagram) smooth skin on real photos. When a filter is evident, smooth or airbrushed skin alone is not a sign; it counts only alongside a stronger one (a malformed hand, broken text, an impossible scene, an AI mark).
 
+Report filters and edits separately in "edits": a colour filter (rainbow, vintage, black and white), a beauty filter (smoothed skin, slimmed face), an AR lens (dog ears, glasses, face paint drawn on), stickers, text or captions added in an app. An ordinary filter or lens is NOT AI generation, and the viewer should be told that. But an AI lens that redraws the whole person or scene (Snapchat's AI lenses, "Dreams", "turn me into an anime" style effects) IS AI: then also answer "likely_ai" and list it as a sign.
+
 Then ask whether the scene could actually happen, the way a sharp person would:
 - Size: is every object the right size next to the people and things around it? (An adult sitting on a small toy, a cat as big as a car, a hand bigger than a head.)
 - Weight and support: could what's shown hold up? (A person resting their full weight on something that would crush, bend or tip over; objects floating with nothing under them.)
@@ -49,4 +51,4 @@ Point to the evidence. For each AI mistake you found, give:
 Give at most 4 signs, strongest first. Never invent a sign you cannot see.
 
 Return ONLY this JSON, on one line:
-{"verdict": "likely_ai" | "no_ai_signs" | "cant_tell", "confidence": <0.0–1.0>, "kind": "photo" | "illustration" | "screenshot" | "meme" | "other", "summary": "<one plain sentence for a viewer>", "signs": [{"what": "...", "why": "...", "box": [x1, y1, x2, y2]}], "harm": {"harmful": <true|false>, "category": "none" | "violence" | "sexual" | "hate" | "threat" | "doxxing" | "self_harm" | "deceptive_fake", "reason": "<one plain sentence, or empty>", "regions": [{"what": "...", "box": [x1, y1, x2, y2]}]}}`;
+{"verdict": "likely_ai" | "no_ai_signs" | "cant_tell", "confidence": <0.0–1.0>, "kind": "photo" | "illustration" | "screenshot" | "meme" | "other", "summary": "<one plain sentence for a viewer>", "edits": [{"type": "color_filter" | "beauty_filter" | "ar_lens" | "ai_lens" | "stickers_or_text", "what": "<a few plain words, e.g. 'rainbow colour filter'>"}], "signs": [{"what": "...", "why": "...", "box": [x1, y1, x2, y2]}], "harm": {"harmful": <true|false>, "category": "none" | "violence" | "sexual" | "hate" | "threat" | "doxxing" | "self_harm" | "deceptive_fake", "reason": "<one plain sentence, or empty>", "regions": [{"what": "...", "box": [x1, y1, x2, y2]}]}}`;

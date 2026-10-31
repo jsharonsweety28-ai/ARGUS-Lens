@@ -72,6 +72,11 @@ assert.equal(r.signs.length, 0, 'no "looks real" evidence is ever listed');
 r = await createLens({ ask: answer({ verdict: 'likely_authentic', confidence: 0.95, signs: [] }), segment: noSam }).assess(photo);
 assert.equal(r.verdict, 'no_ai_signs', 'an "authentic" answer is never passed on as proof');
 
+// Filters and edits are reported apart from the verdict; unknown types and empty ones are dropped.
+r = await createLens({ ask: answer({ verdict: 'no_ai_signs', confidence: 0.8, signs: [], edits: [{ type: 'color_filter', what: 'rainbow colour filter' }, { type: 'ai_lens', what: 'anime AI lens' }, { type: 'made_up', what: 'x' }, { type: 'beauty_filter', what: '' }] }), segment: noSam }).assess(photo);
+assert.deepEqual(r.edits, [{ type: 'color_filter', what: 'rainbow colour filter' }, { type: 'ai_lens', what: 'anime AI lens' }]);
+assert.deepEqual((await createLens({ ask: answer({ verdict: 'no_ai_signs', confidence: 0.8 }), segment: noSam }).assess(photo)).edits, []);
+
 r = await createLens({ ask: async () => { throw new Error('down'); }, segment: noSam }).assess(photo);
 assert.equal(r.verdict, 'unavailable', 'a model failure never says "authentic"'); assert.match(r.summary, /doesn't mean it's real or fake/);
 
