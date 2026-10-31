@@ -2,7 +2,9 @@
 import assert from 'node:assert/strict';
 import { parseImageStream, recordsOfKind, decodeMaskToSVGPath } from '@meta-sam/parser';
 import { provenance, readImage } from '../src/provenance.mjs';
-import { createLens } from '../src/lens.mjs';
+import fs from 'node:fs';
+import { createLens, setVideoModels } from '../src/lens.mjs';
+import { mp4Info } from '../src/mp4.mjs';
 import { parseJson } from '../src/meta.mjs';
 
 // --- tiny hand-built image files ---
@@ -116,6 +118,37 @@ r = await createLens({ ask: answer({}), segment: noSam }).assess(new Uint8Array(
 assert.equal(r.verdict, 'unavailable'); assert.match(r.summary, /not a JPEG, PNG or WebP/);
 
 assert.deepEqual(parseJson('Sure: ```json\n{"a":1}\n``` done'), { a: 1 });
+
+// --- video: frame times from the MP4, then Muse Spark's verdict and SAM 3.1 tracks ---
+const clip = fs.readFileSync(new URL('../demo/samples/parcel-pan.mp4', import.meta.url));
+const info = mp4Info(clip);
+assert.equal(info.width, 1280); assert.equal(info.height, 720);
+assert.equal(info.frameTimes.length, 125, 'fragmented MP4 (browser recording): every frame found');
+assert.ok(info.frameTimes.every((t, i) => i === 0 || t > info.frameTimes[i - 1]), 'frame times go forward');
+assert.equal(mp4Info(Buffer.from('not a video at all')), null);
+
+let samPrompts = [];
+setVideoModels({
+  ask: async () => JSON.stringify({ verdict: 'no_ai_signs', confidence: 0.9, summary: 'A parcel on a doorstep.', signs: [{ at: 2, what: 'x', why: 'y' }],
+    harm: { harmful: true, category: 'doxxing', reason: 'A name and address are visible.', hide: ['shipping label', 'Shipping Label', 'house sign'] } }),
+  track: async ({ what }) => { samPrompts.push(what); return what === 'label' ? { 0: [10, 10, 50, 50], 5: [20, 20, 60, 60] } : {}; },
+});
+let v = await createLens().assessVideo(clip);
+assert.equal(v.kind, 'video'); assert.equal(v.verdict, 'no_ai_signs'); assert.match(v.summary, /doesn't prove it's real/);
+assert.equal(v.signs.length, 0, 'no "looks real" moments are listed');
+assert.deepEqual(v.harm.hide, ['shipping label', 'house sign'], 'duplicate names are merged');
+assert.deepEqual(samPrompts.sort(), ['house sign', 'label', 'shipping label', 'sign'], 'a phrase SAM matches nothing for is retried as its last word');
+assert.equal(v.harm.tracks.length, 1); assert.equal(v.harm.tracks[0].prompt, 'label'); assert.deepEqual(v.harm.tracks[0].boxes[5], [20, 20, 60, 60]);
+assert.equal(v.frameTimes.length, 125);
+
+setVideoModels({ ask: async () => JSON.stringify({ verdict: 'likely_ai', confidence: 0.9, signs: [{ at: 99, what: 'hand', why: 'Fingers merge.' }], harm: { harmful: false } }), track: async () => ({}) });
+v = await createLens().assessVideo(clip);
+assert.equal(v.verdict, 'likely_ai'); assert.equal(v.signs[0].at, info.duration, 'a time past the end is clamped');
+setVideoModels({ ask: async () => { throw new Error('down'); } });
+v = await createLens().assessVideo(clip);
+assert.equal(v.verdict, 'unavailable', 'a failed video check never says "authentic"');
+assert.equal((await createLens().assessVideo(Buffer.from('nope'))).verdict, 'unavailable');
+setVideoModels();
 
 // --- Meta's SAM parser reads SAM 3.1 output (sample line from the Meta docs) ---
 const line = "<0f>0<|box;x1=211;y1=228;x2=270;y2=254;w=320;h=334|><|mask;x=0;y=0;data=27,60,~!!!!M!0c[0o91w?q1!pIH4pPRVp2B3'7`e.ioeAf6-k/#Xd8%dX9x(|>";

@@ -11,6 +11,8 @@ Argus Lens checks images in social media posts for signs of AI generation and fo
 
 It also checks whether the image is **harmful to post**: private details (an address, a phone number, an ID card, a number plate), hate symbols, gore. When hiding a part would make the rest fine, SAM 3.1 outlines that part and Lens offers a **blurred version** to post instead.
 
+**Video** (MP4, up to 60 seconds): Muse Spark watches the clip, frames and sound, and reports AI signs with the moment they happen, and whether it's harmful to post. When a private detail is visible, **SAM 3.1 tracks that object through every frame**, and the demo plays the video with it **blurred as it moves**, and records a blurred copy you can post instead.
+
 There is deliberately no "authentic" verdict: no tool can prove an image is real by looking at it, and telling people a fake is real does more harm than saying "we don't know".
 
 Built for the **Meta Global AI Developer Hackathon** (Indie Developer track, *Build for Your World*) on Meta's models.
@@ -36,7 +38,8 @@ code ────────► the result           A label in the file beats 
 | Meta tool | What Argus Lens uses it for |
 |---|---|
 | **Muse Spark** (`muse-spark-1.3`, Meta Model API) | Reads the image, judges AI signs and harm, and points at the evidence and the private parts on a 0–1000 grid (perception grounding) |
-| **SAM 3.1** (`sam-3.1`, Meta Model API) | Turns each pointed-at area into an exact outline, prompted with Muse Spark's boxes; the private parts are then blurred |
+| **SAM 3.1** (`sam-3.1`, Meta Model API) | Turns each pointed-at area into an exact outline, prompted with Muse Spark's boxes; the private parts are then blurred. In video, tracks each private object through every frame from a concept prompt Muse Spark names |
+| **Muse Spark video understanding** | Watches a clip (frames and sound) for AI signs, with times, and decides which objects to hide |
 | **Muse Image** (`muse-image-1.0`) | Made the test and sample images. Every Muse Image picture carries an IPTC "trained algorithmic media" label in its file, which Lens reports as certain |
 | **`@meta-sam/parser`** | Builds the box prompts and decodes SAM's masks into SVG outlines |
 
@@ -52,7 +55,7 @@ npm run demo             # http://localhost:8800
 
 Put your key in `.env.local` (never committed): `MODEL_API_KEY=your-key`.
 
-The demo has two sample images, both made with Muse Image for this project: a parcel whose shipping label shows a (made-up) name, address and phone number, and a café photo.
+The demo has three samples, all made for this project: a parcel whose shipping label shows a (made-up) name, address and phone number and a café photo (both by Muse Image), and a 6-second video panning across the parcel (recorded in the browser from that image).
 
 ## Browser extension
 

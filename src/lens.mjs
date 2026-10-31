@@ -1,14 +1,17 @@
-// Argus Lens: is this image AI-generated, and is it harmful to post? With the evidence.
+// Argus Lens: is this image or video AI-generated, and is it harmful to post? With the evidence.
 //
 //   file metadata ──► provenance()  (code: certain when a label is present)
 //   image ─────────► Muse Spark    (model: careful assessment + where the signs are)
 //   each sign ─────► SAM 3.1       (model: the exact outline of that area)
+//   video ─────────► Muse Spark    (AI signs with times, harm, which objects to hide)
+//   each object ───► SAM 3.1       (tracked through every frame, so playback can blur it)
 //   code combines them: a label in the file beats a guess; a weak guess becomes "can't tell";
 //   if the model fails, Lens says it couldn't check — it never defaults to "authentic".
-import { buildObjectPrompt, decodeMaskToSVGPath, parseImageStream, recordsOfKind } from '@meta-sam/parser';
+import { buildObjectPrompt, decodeMaskToSVGPath, frameIndexOf, parseImageStream, parseVideoStream, recordsOfKind } from '@meta-sam/parser';
 import { MODELS, parseJson, respond, respondEvents } from './meta.mjs';
 import { provenance } from './provenance.mjs';
-import { ASSESS_PROMPT } from './prompts.mjs';
+import { mp4Info } from './mp4.mjs';
+import { ASSESS_PROMPT, VIDEO_PROMPT } from './prompts.mjs';
 
 // The model can only say it found AI signs, found none, or can't tell. Looking at a picture
 // can never show it's real, so there is no "authentic" verdict.
@@ -129,7 +132,88 @@ export function createLens({ ask, segment, minConfidence = 0.6, reasoning = 'med
     };
   }
 
-  return { assess };
+  /**
+   * A short MP4 clip: Muse Spark watches it (AI signs with times, harm, what to hide), then
+   * SAM 3.1 tracks each object to hide through every frame.
+   * → { kind:'video', verdict, label, summary, confidence, signs:[{at, what, why}],
+   *     harm:{ harmful, category, reason, tracks:[{ what, boxes: { [frame]: [x1,y1,x2,y2] } }] },
+   *     width, height, duration, frameTimes }
+   */
+  async function assessVideo(bytes) {
+    const info = mp4Info(bytes);
+    if (!info) return { kind: 'video', verdict: 'unavailable', label: LABELS.unavailable, summary: 'This file is not an MP4 video.', signs: [], harm: null };
+    if (info.duration > MAX_VIDEO_S) return { kind: 'video', verdict: 'unavailable', label: LABELS.unavailable, summary: `Videos up to ${MAX_VIDEO_S} seconds for now.`, signs: [], harm: null, ...info };
+    const videoUrl = `data:video/mp4;base64,${Buffer.from(bytes).toString('base64')}`;
+
+    let raw;
+    try { raw = parseJson(await askVideo(videoUrl)); }
+    catch (err) {
+      return { kind: 'video', verdict: 'unavailable', label: LABELS.unavailable, summary: "We couldn't check this video right now. That doesn't mean it's real or fake.", signs: [], harm: null, error: err?.message, ...info };
+    }
+    const confidence = Number.isFinite(raw.confidence) ? clamp(raw.confidence, 0, 1) : 0;
+    let verdict = raw.verdict === 'likely_authentic' ? 'no_ai_signs' : VERDICTS.includes(raw.verdict) ? raw.verdict : 'cant_tell';
+    if (verdict === 'likely_ai' && confidence < minConfidence) verdict = 'cant_tell';
+    let summary = typeof raw.summary === 'string' ? raw.summary.trim() : '';
+    if (verdict === 'no_ai_signs') summary = `${summary ? summary.replace(/\.?$/, '. ') : ''}That doesn't prove it's real: AI video can look flawless.`;
+    const signs = verdict === 'likely_ai' && Array.isArray(raw.signs)
+      ? raw.signs.slice(0, 4).flatMap(s => typeof s?.why === 'string' && s.why.trim() ? [{ at: Number.isFinite(s.at) ? clamp(s.at, 0, info.duration) : null, what: String(s.what || '').trim().slice(0, 60), why: s.why.trim() }] : [])
+      : [];
+
+    const h = raw.harm && typeof raw.harm === 'object' ? raw.harm : {};
+    const category = HARM.includes(h.category) ? h.category : 'none';
+    const harmful = h.harmful === true && category !== 'none';
+    const hide = harmful && Array.isArray(h.hide) ? [...new Set(h.hide.map(x => String(x).trim().toLowerCase()).filter(Boolean))].slice(0, 3) : [];
+    // Track each object to hide through the clip. Best effort: a failed track is just missing.
+    // SAM is literal: "shipping label" can match nothing where "label" tracks every frame, so a
+    // phrase that finds nothing is retried as its last word.
+    const track = async what => {
+      for (const prompt of [...new Set([what, what.split(/\s+/).at(-1)])]) {
+        const boxes = await trackVideo({ videoUrl, what: prompt, width: info.width, height: info.height }).catch(() => ({}));
+        if (Object.keys(boxes).length) return { what, prompt, boxes };
+      }
+      return null;
+    };
+    const tracks = (await Promise.all(hide.map(track))).filter(Boolean);
+
+    return {
+      kind: 'video', verdict, label: LABELS[verdict], certain: false, summary, confidence,
+      signs,
+      harm: { harmful, category, reason: typeof h.reason === 'string' ? h.reason.trim() : '', hide, tracks },
+      ...info,
+    };
+  }
+
+  return { assess, assessVideo };
+}
+
+const MAX_VIDEO_S = 60;
+
+const askVideoDefault = videoUrl => respond({
+  model: MODELS.spark,
+  content: [{ type: 'input_text', text: VIDEO_PROMPT }, { type: 'input_video', video_url: videoUrl }],
+  extra: { reasoning: { effort: 'medium' } },
+  timeoutMs: 180000,
+});
+let askVideo = askVideoDefault, trackVideo = samTrack;
+/** For tests: replace the video model calls. */
+export function setVideoModels({ ask, track } = {}) { askVideo = ask || askVideoDefault; trackVideo = track || samTrack; }
+
+/**
+ * SAM 3.1 on a video, with a concept prompt: every object matching `what`, tracked through every
+ * frame. → { [frameIndex]: [x1, y1, x2, y2] on the 0–1000 grid } (the union when several match).
+ */
+export async function samTrack({ videoUrl, what, width, height }) {
+  const events = respondEvents({ model: MODELS.sam, content: [{ type: 'input_text', text: what }, { type: 'input_video', video_url: videoUrl }], timeoutMs: 180000 });
+  const result = await parseVideoStream(events).finalResult;
+  const grid = (v, size) => clamp(Math.round(v * 1000 / size), 0, 1000);
+  const frames = {};
+  for (const b of recordsOfKind(result.records, 'box')) {
+    const f = frameIndexOf(b);
+    if (f === undefined) continue;
+    const box = [grid(b.left, width), grid(b.top, height), grid(b.right, width), grid(b.bottom, height)];
+    frames[f] = frames[f] ? union(frames[f], box) : box;
+  }
+  return frames;
 }
 
 const grow = (b, by) => [clamp(b[0] - by, 0, 1000), clamp(b[1] - by, 0, 1000), clamp(b[2] + by, 0, 1000), clamp(b[3] + by, 0, 1000)];
