@@ -17,6 +17,9 @@ const send = (res, code, type, body) => { res.writeHead(code, { 'Content-Type': 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (req.method === 'GET' && url.pathname === '/') return send(res, 200, 'text/html; charset=utf-8', fs.readFileSync(path.join(HERE, 'index.html')));
+  // The extension's test feed and its content script, for trying the extension without logging in anywhere.
+  if (req.method === 'GET' && url.pathname === '/test') return send(res, 200, 'text/html; charset=utf-8', fs.readFileSync(path.join(HERE, '..', 'extension', 'test', 'feed.html')));
+  if (req.method === 'GET' && url.pathname === '/ext/content.js') return send(res, 200, 'text/javascript; charset=utf-8', fs.readFileSync(path.join(HERE, '..', 'extension', 'content.js')));
   const sample = url.pathname.match(/^\/samples\/([a-z-]+\.(webp|jpg|png))$/);
   if (req.method === 'GET' && sample && fs.existsSync(path.join(HERE, 'samples', sample[1]))) {
     return send(res, 200, `image/${sample[2] === 'jpg' ? 'jpeg' : sample[2]}`, fs.readFileSync(path.join(HERE, 'samples', sample[1])));

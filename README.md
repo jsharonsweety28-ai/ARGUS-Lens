@@ -54,6 +54,16 @@ Put your key in `.env.local` (never committed): `MODEL_API_KEY=your-key`.
 
 The demo has two sample images, both made with Muse Image for this project: a parcel whose shipping label shows a (made-up) name, address and phone number, and a café photo.
 
+## Browser extension
+
+[`extension/`](extension) brings Lens to the feed. On Instagram and Reddit, hover over an image and click **Check**; on any site, right-click an image and choose **Check with Argus Lens**. The verdict sits on the image, the evidence is outlined on it, and private details are **blurred on your screen**. Nothing is checked unless you click, and the extension holds no API key: it sends the image to your Lens server.
+
+1. Run the server: `npm run demo`.
+2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and choose the `extension` folder.
+3. Open Instagram or Reddit, hover over an image, click **Check**.
+
+To try it without logging in anywhere, open `http://localhost:8800/test`: a stand-in feed with the two sample images, running the same content script.
+
 ## Status
 
 Work in progress during the hackathon.

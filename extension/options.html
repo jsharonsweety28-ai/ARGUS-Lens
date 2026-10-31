@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Argus Lens settings</title>
+<style>
+  body{font:15px/1.5 'Segoe UI',system-ui,sans-serif;max-width:520px;margin:32px auto;padding:0 16px;color:#14161c;background:#fff}
+  h1{font-size:20px;margin:0 0 4px}
+  p{color:#5d6272}
+  label{display:block;font-weight:600;margin-top:18px}
+  input{width:100%;padding:8px 10px;margin-top:6px;border:1px solid #d0d4de;border-radius:8px;font:inherit}
+  button{margin-top:12px;padding:8px 14px;border-radius:8px;border:0;background:#6d28d9;color:#fff;font:600 14px inherit;cursor:pointer}
+  #saved{margin-left:8px;color:#047857}
+</style>
+</head>
+<body>
+  <h1>Argus Lens</h1>
+  <p>Hover over an image on Instagram or Reddit and click <b>Check</b>, or right-click any image on any site and choose <b>Check with Argus Lens</b>.</p>
+  <label for="server">Argus Lens server</label>
+  <input id="server" type="url" placeholder="http://localhost:8800">
+  <button id="save" type="button">Save</button><span id="saved"></span>
+  <p>Images you check are sent to this server, which asks Meta's Muse Spark and SAM 3.1. Nothing is checked unless you click.</p>
+<script src="options.js"></script>
+</body>
+</html>
