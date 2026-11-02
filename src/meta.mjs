@@ -13,7 +13,7 @@ export function apiKey() {
   } catch { return null; }
 }
 
-export const MODELS = { spark: 'muse-spark-1.3', sam: 'sam-3.1' };
+export const MODELS = { spark: 'muse-spark-1.3', wonder: 'muse-wonder-1.0', sam: 'sam-3.1' };
 const BASE = process.env.MODEL_API_BASE || 'https://api.meta.ai/v1';
 
 export class ModelError extends Error {}

@@ -47,11 +47,25 @@ code ────────► the result           A label in the file beats 
 
 | Meta tool | What Argus Lens uses it for |
 |---|---|
-| **Muse Spark** (`muse-spark-1.3`, Meta Model API) | Reads the image, judges AI signs and harm, and points at the evidence and the private parts on a 0–1000 grid (perception grounding) |
+| **Muse Wonder** (`muse-wonder-1.0`, Meta Model API) | The image judge: reads the image, judges AI signs, filters, scene logic and harm, and points at the evidence and the private parts on a 0–1000 grid (perception grounding) |
+| **Muse Spark** (`muse-spark-1.3`, Meta Model API) | Watches videos; was the image judge until the comparison below |
 | **SAM 3.1** (`sam-3.1`, Meta Model API) | Turns each pointed-at area into an exact outline, prompted with Muse Spark's boxes; the private parts are then blurred. In video, tracks each private object through every frame from a concept prompt Muse Spark names |
 | **Muse Spark video understanding** | Watches a clip (frames and sound) for AI signs, with times, and decides which objects to hide |
 | **Muse Image** (`muse-image-1.0`) | Made the test and sample images. Every Muse Image picture carries an IPTC "trained algorithmic media" label in its file, which Lens reports as certain |
 | **`@meta-sam/parser`** | Builds the box prompts and decodes SAM's masks into SVG outlines |
+
+### Muse Wonder vs Muse Spark
+
+11 AI images with their file labels removed (as a screenshot would), and 9 real photos (Wikimedia Commons), each checked twice by each model:
+
+| | Muse Spark | Muse Wonder |
+|---|---|---|
+| AI images caught in both runs | 2 of 11 | **7 of 11** |
+| AI images caught in only one run | 2 | 0 |
+| Real photos wrongly called AI | 0 of 9 | **0 of 9** |
+| Seconds per check | 11.2 | 12.5 |
+
+Wonder costs about 4× more per check, and it's worth it: it caught the impossible scenes (an adult on a small toy, even with a filter and caption over it), garbled shop signs, and a Snapchat AI image with its watermark removed, and it was consistent between runs. Very clean AI photos with no visible mistake are still missed by both, and Lens says "no signs of AI found" for them, never "real".
 
 ## Run it
 

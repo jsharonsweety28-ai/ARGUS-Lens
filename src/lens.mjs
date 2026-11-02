@@ -73,9 +73,11 @@ function cleanAssessment(raw) {
  * options.segment({ dataUrl, width, height, items: [{ id, box }] }) → [{ id, box, path }] (default: SAM 3.1).
  * options.minConfidence: a "likely AI" answer below this becomes "can't tell" (default 0.6).
  */
-export function createLens({ ask, segment, minConfidence = 0.6, reasoning = 'medium' } = {}) {
+export function createLens({ ask, segment, minConfidence = 0.6, reasoning = 'medium', model: judge = process.env.LENS_MODEL || MODELS.wonder } = {}) {
+  // The image judge is Muse Wonder: on 11 AI images with their labels stripped it caught 7 in both
+  // runs (Muse Spark: 2, plus 2 only sometimes), with no false alarms on 9 real photos for either.
   ask ??= dataUrl => respond({
-    model: MODELS.spark,
+    model: judge,
     content: [{ type: 'input_text', text: ASSESS_PROMPT }, { type: 'input_image', image_url: dataUrl }],
     extra: { reasoning: { effort: reasoning } },
   });
