@@ -3,7 +3,10 @@ export const VIDEO_PROMPT = `You review a short video someone is about to post o
 
 1. Does it show signs of being generated or heavily altered by AI?
 Look for concrete mistakes AI video makes: objects or people morphing, melting or popping in and out between frames; hands and fingers changing; text and signs that change or turn to squiggles from frame to frame; faces that drift or flicker; physics that is impossible (water, cloth, hair moving wrongly); lip movement that doesn't match the speech.
-- "likely_ai": you found at least one such mistake. Every sign you list must be one, with the time it happens.
+Also look for visible AI marks stamped on the video (Meta's "Imagined with AI" or "AI info" label, Snapchat's ghost-with-sparkles watermark, Gemini's sparkle, Sora's or Veo's watermark, an "AI generated" sticker or caption): a clear mark is a strong sign. Coming from Snapchat, Instagram or a screen recording is NOT a sign by itself.
+Ask whether what happens could actually happen: sizes next to people, weight and support, physics (gravity, water, cloth, hair), cause and effect. An impossible event is a strong sign; unlikely but possible is not.
+Report filters and edits separately in "edits": colour filter, beauty filter, AR lens (ears, glasses drawn on), stickers or text. An ordinary filter is NOT AI generation. An AI lens that redraws the whole person or scene IS: then also answer "likely_ai". When a beauty filter is evident, smooth skin alone is not a sign.
+- "likely_ai": you found at least one such mistake or mark. Every sign you list must be one, with the time it happens.
 - "no_ai_signs": you looked carefully and found none. This does NOT mean the video is real; never list reasons it "looks real".
 - "cant_tell": too short, blurry, dark or compressed to inspect.
 
@@ -12,7 +15,7 @@ Harmful = graphic violence, sexual content, hate symbols or slurs (seen or spoke
 When it is harmful and hiding certain objects would make the rest fine, list them in "harm.hide": each as one or two plain words naming the visible OBJECT that carries the detail ("label", "license plate", "ID card", "sign", "screen"), at most 3. An object detector reads these literally, so name the object, not what is written on it. If hiding objects can't make it fine, give none.
 
 Return ONLY this JSON, on one line:
-{"verdict": "likely_ai" | "no_ai_signs" | "cant_tell", "confidence": <0.0–1.0>, "summary": "<one plain sentence describing the video for a viewer>", "signs": [{"at": <seconds>, "what": "...", "why": "<one plain sentence>"}], "harm": {"harmful": <true|false>, "category": "none" | "violence" | "sexual" | "hate" | "threat" | "doxxing" | "self_harm" | "deceptive_fake", "reason": "<one plain sentence, or empty>", "hide": ["<noun phrase>", ...]}}`;
+{"verdict": "likely_ai" | "no_ai_signs" | "cant_tell", "confidence": <0.0–1.0>, "summary": "<one plain sentence describing the video for a viewer>", "edits": [{"type": "color_filter" | "beauty_filter" | "ar_lens" | "ai_lens" | "stickers_or_text", "what": "<a few plain words>"}], "signs": [{"at": <seconds>, "what": "...", "why": "<one plain sentence>"}], "harm": {"harmful": <true|false>, "category": "none" | "violence" | "sexual" | "hate" | "threat" | "doxxing" | "self_harm" | "deceptive_fake", "reason": "<one plain sentence, or empty>", "hide": ["<noun phrase>", ...]}}`;
 
 // The prompt Muse Spark answers for each image. Edit here; re-run the test images after any change.
 

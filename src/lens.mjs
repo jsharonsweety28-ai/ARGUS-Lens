@@ -17,6 +17,11 @@ import { ASSESS_PROMPT, VIDEO_PROMPT } from './prompts.mjs';
 // can never show it's real, so there is no "authentic" verdict.
 const VERDICTS = ['likely_ai', 'no_ai_signs', 'cant_tell'];
 const EDIT_TYPES = ['color_filter', 'beauty_filter', 'ar_lens', 'ai_lens', 'stickers_or_text'];
+// Filters, lenses and app edits: reported to the viewer, and not AI generation (except an AI lens).
+const cleanEdits = list => (Array.isArray(list) ? list : []).slice(0, 4).flatMap(e => {
+  const type = EDIT_TYPES.includes(e?.type) ? e.type : null, what = typeof e?.what === 'string' ? e.what.trim().slice(0, 60) : '';
+  return type && what ? [{ type, what }] : [];
+});
 const HARM = ['none', 'violence', 'sexual', 'hate', 'threat', 'doxxing', 'self_harm', 'deceptive_fake'];
 
 // Plain words for each verdict, shown to the viewer.
@@ -52,11 +57,7 @@ function cleanAssessment(raw) {
     : [];
   // An older or off-script "authentic" answer is read as "no signs found", never as proof.
   const verdict = raw.verdict === 'likely_authentic' ? 'no_ai_signs' : VERDICTS.includes(raw.verdict) ? raw.verdict : 'cant_tell';
-  // Filters, lenses and app edits: reported to the viewer, and not AI generation (except an AI lens).
-  const edits = (Array.isArray(raw.edits) ? raw.edits : []).slice(0, 4).flatMap(e => {
-    const type = EDIT_TYPES.includes(e?.type) ? e.type : null, what = typeof e?.what === 'string' ? e.what.trim().slice(0, 60) : '';
-    return type && what ? [{ type, what }] : [];
-  });
+  const edits = cleanEdits(raw.edits);
   return {
     verdict,
     edits,
@@ -187,6 +188,7 @@ export function createLens({ ask, segment, minConfidence = 0.6, reasoning = 'med
 
     return {
       kind: 'video', verdict, label: LABELS[verdict], certain: false, summary, confidence,
+      edits: cleanEdits(raw.edits),
       signs,
       harm: { harmful, category, reason: typeof h.reason === 'string' ? h.reason.trim() : '', hide, tracks },
       ...info,
@@ -199,7 +201,9 @@ export function createLens({ ask, segment, minConfidence = 0.6, reasoning = 'med
 const MAX_VIDEO_S = 60;
 
 const askVideoDefault = videoUrl => respond({
-  model: MODELS.spark,
+  // Muse Wonder: on test clips it caught a Snapchat AI clip (no watermark) 2/2 where Muse Spark
+  // missed it 2/2, flagged no real clip, and answered in about half the time.
+  model: process.env.LENS_VIDEO_MODEL || MODELS.wonder,
   content: [{ type: 'input_text', text: VIDEO_PROMPT }, { type: 'input_video', video_url: videoUrl }],
   extra: { reasoning: { effort: 'medium' } },
   timeoutMs: 180000,

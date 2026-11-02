@@ -47,8 +47,8 @@ code ────────► the result           A label in the file beats 
 
 | Meta tool | What Argus Lens uses it for |
 |---|---|
-| **Muse Wonder** (`muse-wonder-1.0`, Meta Model API) | The image judge: reads the image, judges AI signs, filters, scene logic and harm, and points at the evidence and the private parts on a 0–1000 grid (perception grounding) |
-| **Muse Spark** (`muse-spark-1.3`, Meta Model API) | Watches videos; was the image judge until the comparison below |
+| **Muse Wonder** (`muse-wonder-1.0`, Meta Model API) | Watches videos (frames and sound) and judges images: reads the image, judges AI signs, filters, scene logic and harm, and points at the evidence and the private parts on a 0–1000 grid (perception grounding) |
+| **Muse Spark** (`muse-spark-1.3`, Meta Model API) | Was the image and video judge until the comparisons below |
 | **SAM 3.1** (`sam-3.1`, Meta Model API) | Turns each pointed-at area into an exact outline, prompted with Muse Spark's boxes; the private parts are then blurred. In video, tracks each private object through every frame from a concept prompt Muse Spark names |
 | **Muse Spark video understanding** | Watches a clip (frames and sound) for AI signs, with times, and decides which objects to hide |
 | **Muse Image** (`muse-image-1.0`) | Made the test and sample images. Every Muse Image picture carries an IPTC "trained algorithmic media" label in its file, which Lens reports as certain |

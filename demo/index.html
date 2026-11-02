@@ -232,6 +232,7 @@
     $('result').innerHTML = `
       <span class="verdict v-${esc(r.verdict)}">${esc(r.label)}</span>${r.verdict === 'likely_ai' && r.confidence != null ? `<span class="certain">${Math.round(r.confidence * 100)}% confident</span>` : ''}
       <p class="summary">${esc(r.summary)}</p>
+      ${editsHtml(r.edits)}
       ${r.harm && r.harm.harmful ? `<div class="harm"><h3>Not safe to post: ${esc(HARM[r.harm.category] || 'harmful')}</h3>${esc(r.harm.reason)}
         ${tracks.length ? ` SAM 3.1 tracked ${tracks.map(t => `the <b>${esc(t.what)}</b> through ${Object.keys(t.boxes).length} frames`).join(' and ')}; it's blurred as the video plays.` : ' Hiding parts of it wouldn\'t make it safe.'}</div>` : ''}
       ${(r.signs || []).length ? `<h2>Evidence</h2><ol class="times">${r.signs.map(s => `<li>${s.at != null ? `<button type="button" data-at="${s.at}">${fmt(s.at)}</button>` : ''}<span class="what">${esc(s.what || 'Moment')}</span>: ${esc(s.why)}</li>`).join('')}</ol>` : ''}
