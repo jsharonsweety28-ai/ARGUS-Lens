@@ -129,6 +129,9 @@
       ${ai.length ? `<p><b>AI lens:</b> ${ai.map(e => esc(e.what)).join(', ')}. An AI lens redraws the picture, so it counts as AI-made.</p>` : ''}</div>`;
   }
 
+  // Privacy details blurred as a courtesy: a neutral note, not a warning.
+  const privacyHtml = names => names.length ? `<div class="edits"><p><b>Blurred for privacy:</b> ${[...new Set(names)].map(esc).join(', ')}. This doesn't make it unsafe to post; it just keeps details like these private.</p></div>` : '';
+
   function show(r) {
     const W = r.width || 1000, H = r.height || 1000;
     const px = (v, size) => v * size / 1000;
@@ -145,13 +148,16 @@
     }).join('');
 
     // Harmful parts: outlined in red, and blurred in the safe version (shown by default).
-    const regions = (r.harm && r.harm.harmful && r.harm.regions) || [];
+    // Everything to blur: harmful parts (red, numbered) and privacy details (grey, no number).
+    const regions = ((r.harm && r.harm.regions) || []).filter(g => g.privacy || r.harm.harmful);
     $('overlay').innerHTML += regions.map((g, i) => {
+      const col = g.privacy ? 'var(--unk)' : 'var(--harm)';
       const [x1, y1, x2, y2] = g.hideBox, rx = px(x1, W), ry = px(y1, H), bx = inside(rx, W), by = inside(ry, H);
       const shape = g.path
-        ? `<g transform="translate(${g.path.x} ${g.path.y}) scale(${g.path.w / g.path.rasterW} ${g.path.h / g.path.rasterH})"><path d="${esc(g.path.d)}" fill="none" stroke="var(--harm)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></g>`
+        ? `<g transform="translate(${g.path.x} ${g.path.y}) scale(${g.path.w / g.path.rasterW} ${g.path.h / g.path.rasterH})"><path d="${esc(g.path.d)}" fill="none" stroke="${col}" stroke-width="2.5" vector-effect="non-scaling-stroke"/></g>`
         : '';
-      return `<g>${shape}<rect x="${rx}" y="${ry}" width="${px(x2 - x1, W)}" height="${px(y2 - y1, H)}" rx="${stroke * 3}" fill="none" stroke="var(--harm)" stroke-width="${stroke}" stroke-dasharray="${stroke * 4} ${stroke * 2}"/><circle cx="${bx}" cy="${by}" r="${font * 0.75}" fill="var(--harm)"/><text x="${bx}" y="${by}" fill="#fff" font-size="${font}" font-weight="700" text-anchor="middle" dominant-baseline="central">${i + 1}</text></g>`;
+      const badge = g.privacy ? '' : `<circle cx="${bx}" cy="${by}" r="${font * 0.75}" fill="${col}"/><text x="${bx}" y="${by}" fill="#fff" font-size="${font}" font-weight="700" text-anchor="middle" dominant-baseline="central">${i + 1}</text>`;
+      return `<g>${shape}<rect x="${rx}" y="${ry}" width="${px(x2 - x1, W)}" height="${px(y2 - y1, H)}" rx="${stroke * 3}" fill="none" stroke="${col}" stroke-width="${stroke}" stroke-dasharray="${stroke * 4} ${stroke * 2}"/>${badge}</g>`;
     }).join('');
     makeSafe(regions);
 
@@ -166,7 +172,8 @@
       ${r.kind && r.kind !== 'photo' ? `<p class="meta">Looks like ${r.kind === 'other' ? 'something other than a photo' : 'a ' + esc(r.kind)}, not a photo.</p>` : ''}
       ${editsHtml(r.edits)}
       ${r.harm && r.harm.harmful ? `<div class="harm"><h3>Not safe to post: ${esc(HARM[r.harm.category] || 'harmful')}</h3>${esc(r.harm.reason)}
-        ${r.harm.regions.length ? ` The parts below are blurred in the safe version.<ol class="signs" style="margin-top:10px">${r.harm.regions.map((g, i) => `<li><span class="num">${i + 1}</span><span class="what">${esc(g.what)}</span></li>`).join('')}</ol>` : ' Hiding parts of it wouldn\'t make it safe.'}</div>` : ''}
+        ${regions.some(g => !g.privacy) ? ` The parts below are blurred in the safe version.<ol class="signs" style="margin-top:10px">${regions.filter(g => !g.privacy).map((g, i) => `<li><span class="num">${i + 1}</span><span class="what">${esc(g.what)}</span></li>`).join('')}</ol>` : ' Hiding parts of it wouldn\'t make it safe.'}</div>` : ''}
+      ${privacyHtml(regions.filter(g => g.privacy).map(g => g.what))}
       ${(r.signs || []).length ? `<h2>Evidence</h2><ol class="signs">${r.signs.map((s, i) => `<li data-i="${i}"><span class="num">${i + 1}</span><span><span class="what">${esc(s.what || 'Area')}</span><br>${esc(s.why)}</span></li>`).join('')}</ol>` : ''}
       <h2>What the file says</h2><ul class="facts meta">${facts.map(f => `<li>${esc(f)}</li>`).join('')}</ul>`;
     for (const li of document.querySelectorAll('ol.signs li')) {
@@ -227,14 +234,15 @@
 
   const fmt = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
   function showVideo(r) {
-    const tracks = (r.harm && r.harm.harmful && r.harm.tracks) || [];
+    const tracks = ((r.harm && r.harm.tracks) || []).filter(t => t.privacy || r.harm.harmful);
     video = { result: r, tracks, blurOn: true };
     $('result').innerHTML = `
       <span class="verdict v-${esc(r.verdict)}">${esc(r.label)}</span>${r.verdict === 'likely_ai' && r.confidence != null ? `<span class="certain">${Math.round(r.confidence * 100)}% confident</span>` : ''}
       <p class="summary">${esc(r.summary)}</p>
       ${editsHtml(r.edits)}
       ${r.harm && r.harm.harmful ? `<div class="harm"><h3>Not safe to post: ${esc(HARM[r.harm.category] || 'harmful')}</h3>${esc(r.harm.reason)}
-        ${tracks.length ? ` SAM 3.1 tracked ${tracks.map(t => `the <b>${esc(t.what)}</b> through ${Object.keys(t.boxes).length} frames`).join(' and ')}; it's blurred as the video plays.` : ' Hiding parts of it wouldn\'t make it safe.'}</div>` : ''}
+        ${tracks.some(t => !t.privacy) ? ` SAM 3.1 tracked ${tracks.filter(t => !t.privacy).map(t => `the <b>${esc(t.what)}</b> through ${Object.keys(t.boxes).length} frames`).join(' and ')}; it's blurred as the video plays.` : ' Hiding parts of it wouldn\'t make it safe.'}</div>` : ''}
+      ${privacyHtml(tracks.filter(t => t.privacy).map(t => t.what))}
       ${(r.signs || []).length ? `<h2>Evidence</h2><ol class="times">${r.signs.map(s => `<li>${s.at != null ? `<button type="button" data-at="${s.at}">${fmt(s.at)}</button>` : ''}<span class="what">${esc(s.what || 'Moment')}</span>: ${esc(s.why)}</li>`).join('')}</ol>` : ''}
       <p class="meta">${r.width}×${r.height}, ${r.duration.toFixed(1)} seconds, ${r.frameTimes.length} frames.</p>`;
     for (const b of document.querySelectorAll('[data-at]')) b.onclick = () => { $('vid').currentTime = Number(b.dataset.at); $('vid').play(); };

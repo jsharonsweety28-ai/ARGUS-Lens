@@ -55,6 +55,10 @@ function cleanAssessment(raw) {
   const regions = harmful && Array.isArray(harm.regions)
     ? harm.regions.slice(0, 6).flatMap(r => { const box = cleanBox(r?.box); return box ? [{ what: String(r.what || '').trim().slice(0, 60) || 'Private detail', box }] : []; })
     : [];
+  // Privacy details (number plates, house numbers…) in a fine image: blurred, never "harmful".
+  const privacy = (Array.isArray(raw.privacy) ? raw.privacy : []).slice(0, 4).flatMap(r => {
+    const box = cleanBox(r?.box); return box ? [{ what: String(r.what || '').trim().slice(0, 60) || 'Private detail', box, privacy: true }] : [];
+  });
   // An older or off-script "authentic" answer is read as "no signs found", never as proof.
   const verdict = raw.verdict === 'likely_authentic' ? 'no_ai_signs' : VERDICTS.includes(raw.verdict) ? raw.verdict : 'cant_tell';
   const edits = cleanEdits(raw.edits);
@@ -65,7 +69,8 @@ function cleanAssessment(raw) {
     kind: typeof raw.kind === 'string' ? raw.kind : 'other',
     summary: typeof raw.summary === 'string' ? raw.summary.trim() : '',
     signs,
-    harm: { harmful, category, reason: typeof harm.reason === 'string' ? harm.reason.trim() : '', regions },
+    // regions = everything to blur: the harmful parts, then the privacy details (marked privacy: true).
+    harm: { harmful, category, reason: typeof harm.reason === 'string' ? harm.reason.trim() : '', regions: [...regions, ...privacy] },
   };
 }
 
@@ -184,13 +189,18 @@ export function createLens({ ask, segment, minConfidence = 0.6, reasoning = 'med
       }
       return null;
     };
-    const tracks = (await Promise.all(hide.map(track))).filter(Boolean);
+    // Privacy details (number plates, house numbers) are tracked and blurred too, but never make it harmful.
+    const privacy = Array.isArray(raw.privacy) ? [...new Set(raw.privacy.map(x => String(x).trim().toLowerCase()).filter(x => x && !hide.includes(x)))].slice(0, 3) : [];
+    const tracks = (await Promise.all([
+      ...hide.map(track),
+      ...privacy.map(what => track(what).then(t => t && { ...t, privacy: true })),
+    ])).filter(Boolean);
 
     return {
       kind: 'video', verdict, label: LABELS[verdict], certain: false, summary, confidence,
       edits: cleanEdits(raw.edits),
       signs,
-      harm: { harmful, category, reason: typeof h.reason === 'string' ? h.reason.trim() : '', hide, tracks },
+      harm: { harmful, category, reason: typeof h.reason === 'string' ? h.reason.trim() : '', hide, privacy, tracks },
       ...info,
     };
   }

@@ -115,6 +115,10 @@ assert.deepEqual(r.harm.regions[0].box, [90, 95, 320, 160]);
 // Grown 25% of the width each side (line ends are what boxes cut off) and 15% of the height (at least 15).
 assert.deepEqual(r.harm.regions[0].hideBox, [32, 80, 378, 175], 'the hide box covers SAM\'s object and Muse Spark\'s box, both grown');
 assert.deepEqual(r.harm.regions[1].hideBox, [25, 185, 475, 275], 'without an outline, Muse Spark\'s box (grown) is hidden');
+// Privacy details (a number plate) are blurred but never make the image harmful.
+r = await createLens({ ask: answer({ verdict: 'no_ai_signs', confidence: 0.8, harm: { harmful: false, category: 'none' }, privacy: [{ what: 'number plate', box: [300, 700, 500, 760] }, { what: 'no box' }] }), segment: noSam }).assess(photo);
+assert.equal(r.harm.harmful, false); assert.equal(r.harm.regions.length, 1);
+assert.equal(r.harm.regions[0].privacy, true); assert.ok(r.harm.regions[0].hideBox, 'a privacy detail gets a blur box');
 r = await createLens({ ask: answer({ ...doxx, harm: { ...doxx.harm, harmful: false } }), segment: noSam }).assess(photo);
 assert.equal(r.harm.regions.length, 0, 'nothing is hidden when nothing is harmful');
 r = await createLens({ ask: answer({ verdict: 'likely_ai', confidence: 0.9, signs: [sign] }), segment: async () => { throw new Error('sam down'); } }).assess(photo);

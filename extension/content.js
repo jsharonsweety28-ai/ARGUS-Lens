@@ -242,10 +242,12 @@
     const r = state.result;
     const [fg, bg] = LABEL_STYLE[r.verdict] || LABEL_STYLE.cant_tell;
     const sub = r.certain ? 'from the file itself' : r.verdict === 'likely_ai' && r.confidence != null ? `${Math.round(r.confidence * 100)}% confident` : '';
-    const regions = r.harm?.harmful ? r.harm.regions || [] : [];
+    const regions = (r.harm?.regions || []).filter(g => g.privacy || r.harm.harmful);
+    const priv = regions.filter(g => g.privacy).map(g => g.what);
     return `<span class="verdict" style="color:${fg};background:${bg}">${esc(r.label)}</span>${sub ? `<span class="sub">${sub}</span>` : ''}
       <p>${esc(r.summary)}</p>
       ${editsLine(r.edits)}
+      ${priv.length ? `<p class="edits"><b>Blurred for privacy:</b> ${[...new Set(priv)].map(esc).join(', ')}.</p>` : ''}
       ${state.frame ? `<p class="sub" style="margin:0 0 8px">This is the frame at ${fmt(state.at)}. Press play and the outlines clear; check another frame any time.</p>` : ''}
       ${r.harm?.harmful ? `<div class="harm"><b>${esc(HARM_SEEN[r.harm.category] || 'May be harmful')}.</b> ${esc(r.harm.reason)}${regions.length ? ' Blurred on your screen.' : ''}</div>` : ''}
       ${r.signs?.length ? `<h4>Evidence</h4><ol>${r.signs.map((s, i) => `<li><span class="n" style="background:#7c3aed">${i + 1}</span><span><b>${esc(s.what || 'Area')}</b>: ${esc(s.why)}</span></li>`).join('')}</ol>` : ''}
@@ -280,7 +282,7 @@
     if (!r) return;
     if (!state.layer) { state.layer = document.createElement('div'); state.layer.className = 'layer'; root.appendChild(state.layer); }
     const W = r.width || 1000, H = r.height || 1000, px = (v, s) => v * s / 1000;
-    const regions = r.harm?.harmful ? r.harm.regions || [] : [];
+    const regions = (r.harm?.regions || []).filter(g => g.privacy || r.harm.harmful);
     const n = (x, y, i, color) => `<circle cx="${x}" cy="${y}" r="${W / 34}" fill="${color}"/><text x="${x}" y="${y}" fill="#fff" font-size="${W / 26}" font-weight="700" text-anchor="middle" dominant-baseline="central">${i + 1}</text>`;
     const outline = (s, color, dashed) => s.path
       ? `<g transform="translate(${s.path.x} ${s.path.y}) scale(${s.path.w / s.path.rasterW} ${s.path.h / s.path.rasterH})"><path d="${esc(s.path.d)}" fill="${dashed ? 'none' : 'rgba(124,58,237,.25)'}" stroke="${color}" stroke-width="2.5" vector-effect="non-scaling-stroke"/></g>`
