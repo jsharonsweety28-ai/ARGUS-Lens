@@ -63,6 +63,16 @@
   .steps li::before{content:'○ ';}
   .steps li.done::before{content:'● ';color:var(--mark)}
   .empty{color:var(--muted)}
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 12px;max-width:640px}
+  .modes button{font:700 16px Inter,sans-serif;text-align:left;padding:12px 16px;border-radius:14px;border:2px solid var(--line);background:var(--surface);color:var(--text);cursor:pointer}
+  .modes button small{display:block;font-weight:500;font-size:13px;color:var(--muted);margin-top:2px}
+  .modes button[aria-selected="true"]{border-color:var(--mark);background:var(--ai-bg)}
+  .ok{margin-top:4px;padding:12px 14px;border-radius:12px;background:var(--ok-bg);color:var(--ok)}
+  .ok h3{margin:0 0 4px;font-size:16px}
+  .aside{margin-top:16px;padding:10px 14px;border-radius:12px;border:1px solid var(--line);font-size:14px}
+  .aside .verdict{font-size:13px;padding:4px 10px}
+  .aside p{margin:6px 0 0}
+  .aside a{color:var(--mark);font-weight:600}
   .note{margin-top:22px;font-size:12.5px;color:var(--muted)}
 </style>
 </head>
@@ -72,7 +82,11 @@
     <svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M4 32C12 18 22 12 32 12s20 6 28 20c-8 14-18 20-28 20S12 46 4 32Z" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/><circle cx="32" cy="32" r="10" fill="currentColor"/></svg>
     <h1>Argus Lens</h1>
   </header>
-  <p class="tag">Is this image real? Argus Lens shows the evidence, not just a guess.</p>
+  <nav class="modes" role="tablist" aria-label="What to check">
+    <button type="button" role="tab" id="mode-real" data-mode="real">Is this real?<small>Check a photo or video you've seen</small></button>
+    <button type="button" role="tab" id="mode-post" data-mode="post">Check before posting<small>Check your own photo or video</small></button>
+  </nav>
+  <p class="tag" id="tag"></p>
 
   <div class="grid">
     <section class="card">
@@ -95,9 +109,27 @@
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const HARM = { violence: 'Graphic violence', sexual: 'Sexual content', hate: 'Hate', threat: 'Threat', doxxing: 'Private information', self_harm: 'Self-harm', deceptive_fake: 'Deceptive fake' };
+  // What a viewer is told about someone else's harmful post (they aren't posting anything).
+  const HARM_SEEN = { violence: 'Contains graphic violence', sexual: 'Contains sexual content', hate: 'Contains hate', threat: 'Contains a threat', doxxing: "Shows someone's private information", self_harm: 'Encourages self-harm', deceptive_fake: 'May be a deceptive fake' };
+
+  // Two sections, one check: "Is this real?" leads with the AI verdict and its evidence;
+  // "Check before posting" leads with harm and privacy and the safe copy. The section is kept in
+  // the address (#real / #post) and switching re-shows the last result without checking again.
+  const MODES = {
+    real: { tag: 'Is this photo or video real? Argus Lens shows the evidence, not just a guess.', empty: 'The result appears here: whether it\'s likely AI-generated, and the evidence, outlined on the picture.' },
+    post: { tag: "About to post a photo or video? Argus Lens checks it's safe to share, and blurs private details for you.", empty: 'The result appears here: whether it\'s safe to post, what to hide, and a safe copy to download.' },
+  };
+  let mode = location.hash === '#post' ? 'post' : 'real', last = null; // last = { kind: 'image' | 'video', r }
+  function setMode(m) {
+    mode = m; history.replaceState(null, '', '#' + m);
+    for (const b of document.querySelectorAll('.modes button')) b.setAttribute('aria-selected', String(b.dataset.mode === m));
+    $('tag').textContent = MODES[m].tag;
+    if (!last) { if ($('result').querySelector('.empty')) $('result').innerHTML = `<p class="empty">${MODES[m].empty}</p>`; return; }
+    last.kind === 'video' ? showVideo(last.r) : show(last.r);
+  }
 
   function steps(done) {
-    const names = ['Reading labels in the file', 'Muse Spark is looking at the image', 'SAM 3.1 is outlining the evidence'];
+    const names = ['Reading labels in the file', 'Muse Wonder is looking at the image', 'SAM 3.1 is outlining the evidence'];
     $('result').innerHTML = '<p><b>Checking…</b></p><ul class="steps">' + names.map((n, i) => `<li class="${i < done ? 'done' : ''}">${n}</li>`).join('') + '</ul>';
   }
 
@@ -132,13 +164,28 @@
   // Privacy details blurred as a courtesy: a neutral note, not a warning.
   const privacyHtml = names => names.length ? `<div class="edits"><p><b>Blurred for privacy:</b> ${[...new Set(names)].map(esc).join(', ')}. This doesn't make it unsafe to post; it just keeps details like these private.</p></div>` : '';
 
+  // The AI verdict with its confidence note, as a pill.
+  const verdictPill = r => `<span class="verdict v-${esc(r.verdict)}">${esc(r.label)}</span>${r.certain ? '<span class="certain">from the file itself</span>' : (r.confidence != null && r.verdict === 'likely_ai' ? `<span class="certain">${Math.round(r.confidence * 100)}% confident</span>` : '')}`;
+  // Harm for the section: "Not safe to post" (with what's hidden) or "OK to post" when posting;
+  // a plain description of what it contains when viewing.
+  function harmHtml(r, hiddenList) {
+    if (!r.harm) return '';
+    if (mode === 'real') return r.harm.harmful ? `<div class="harm"><b>${esc(HARM_SEEN[r.harm.category] || 'May be harmful')}.</b> ${esc(r.harm.reason)}${hiddenList ? ' Blurred on your screen.' : ''}</div>` : '';
+    if (r.harm.harmful) return `<div class="harm"><h3>Not safe to post: ${esc(HARM[r.harm.category] || 'harmful')}</h3>${esc(r.harm.reason)}${hiddenList || ' Hiding parts of it wouldn\'t make it safe.'}</div>`;
+    return `<div class="ok"><h3>OK to post</h3>Nothing harmful found: no threats, hate, private information or graphic content.</div>`;
+  }
+  // The AI result, kept short, under the harm result when posting.
+  const aiAside = r => `<div class="aside">${verdictPill(r)}<p>${esc(r.summary)}</p>${editsHtml(r.edits)}<p class="meta">Switch to <a href="#real" data-goto="real">Is this real?</a> for the evidence.</p></div>`;
+
   function show(r) {
+    last = { kind: 'image', r };
     const W = r.width || 1000, H = r.height || 1000;
     const px = (v, size) => v * size / 1000;
     $('overlay').setAttribute('viewBox', `0 0 ${W} ${H}`);
     const stroke = Math.max(2, W / 300), font = Math.max(16, W / 26);
     const inside = (v, size) => Math.min(Math.max(v, font * 0.8), size - font * 0.8); // keep the number badge on the image
-    $('overlay').innerHTML = (r.signs || []).map((s, i) => {
+    // AI evidence is outlined in "Is this real?"; harm and privacy outlines in "Check before posting".
+    $('overlay').innerHTML = (mode === 'real' ? r.signs || [] : []).map((s, i) => {
       if (!s.box) return '';
       const [x1, y1, x2, y2] = s.box, rx = px(x1, W), ry = px(y1, H), bx = inside(rx, W), by = inside(ry, H);
       const shape = s.path
@@ -150,7 +197,7 @@
     // Harmful parts: outlined in red, and blurred in the safe version (shown by default).
     // Everything to blur: harmful parts (red, numbered) and privacy details (grey, no number).
     const regions = ((r.harm && r.harm.regions) || []).filter(g => g.privacy || r.harm.harmful);
-    $('overlay').innerHTML += regions.map((g, i) => {
+    $('overlay').innerHTML += (mode === 'post' ? regions : []).map((g, i) => {
       const col = g.privacy ? 'var(--unk)' : 'var(--harm)';
       const [x1, y1, x2, y2] = g.hideBox, rx = px(x1, W), ry = px(y1, H), bx = inside(rx, W), by = inside(ry, H);
       const shape = g.path
@@ -166,16 +213,21 @@
       ...(prov.signals || []).map(s => s.detail),
       prov.signals && !prov.signals.length ? 'The file carries no AI label or Content Credentials (most images don\'t).' : '',
     ].filter(Boolean);
-    $('result').innerHTML = `
-      <span class="verdict v-${esc(r.verdict)}">${esc(r.label)}</span>${r.certain ? '<span class="certain">from the file itself</span>' : (r.confidence != null && r.verdict === 'likely_ai' ?`<span class="certain">${Math.round(r.confidence * 100)}% confident</span>` : '')}
+    const harmful = regions.filter(g => !g.privacy);
+    const hiddenList = harmful.length ? ` The parts below are blurred in the safe version.<ol class="signs" style="margin-top:10px">${harmful.map((g, i) => `<li><span class="num">${i + 1}</span><span class="what">${esc(g.what)}</span></li>`).join('')}</ol>` : '';
+    $('result').innerHTML = mode === 'real' ? `
+      ${verdictPill(r)}
       <p class="summary">${esc(r.summary)}</p>
       ${r.kind && r.kind !== 'photo' ? `<p class="meta">Looks like ${r.kind === 'other' ? 'something other than a photo' : 'a ' + esc(r.kind)}, not a photo.</p>` : ''}
       ${editsHtml(r.edits)}
-      ${r.harm && r.harm.harmful ? `<div class="harm"><h3>Not safe to post: ${esc(HARM[r.harm.category] || 'harmful')}</h3>${esc(r.harm.reason)}
-        ${regions.some(g => !g.privacy) ? ` The parts below are blurred in the safe version.<ol class="signs" style="margin-top:10px">${regions.filter(g => !g.privacy).map((g, i) => `<li><span class="num">${i + 1}</span><span class="what">${esc(g.what)}</span></li>`).join('')}</ol>` : ' Hiding parts of it wouldn\'t make it safe.'}</div>` : ''}
-      ${privacyHtml(regions.filter(g => g.privacy).map(g => g.what))}
       ${(r.signs || []).length ? `<h2>Evidence</h2><ol class="signs">${r.signs.map((s, i) => `<li data-i="${i}"><span class="num">${i + 1}</span><span><span class="what">${esc(s.what || 'Area')}</span><br>${esc(s.why)}</span></li>`).join('')}</ol>` : ''}
-      <h2>What the file says</h2><ul class="facts meta">${facts.map(f => `<li>${esc(f)}</li>`).join('')}</ul>`;
+      <h2>What the file says</h2><ul class="facts meta">${facts.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
+      ${harmHtml(r, harmful.length)}
+      ${privacyHtml(regions.filter(g => g.privacy).map(g => g.what))}` : `
+      ${harmHtml(r, hiddenList)}
+      ${privacyHtml(regions.filter(g => g.privacy).map(g => g.what))}
+      ${aiAside(r)}`;
+    for (const a of document.querySelectorAll('[data-goto]')) a.onclick = e => { e.preventDefault(); setMode(a.dataset.goto); };
     for (const li of document.querySelectorAll('ol.signs li')) {
       const g = () => $('overlay').querySelector(`g[data-i="${li.dataset.i}"]`);
       li.onmouseenter = () => { li.classList.add('hot'); g()?.setAttribute('opacity', '1'); [...$('overlay').children].forEach(x => x !== g() && x.setAttribute('opacity', '.25')); };
@@ -220,7 +272,7 @@
     try { const mp4 = await toMp4(file); if (mp4 !== file) { file = mp4; vid.src = URL.createObjectURL(file); } } // play what Lens checks, so the blur lines up
     catch (e) { $('result').innerHTML = `<p>${esc(e.message)}</p>`; return; }
     if (file.size > 20 * 1024 * 1024) { $('result').innerHTML = '<p>Videos up to 20 MB for now.</p>'; return; }
-    const names = ['Muse Spark is watching the video', 'SAM 3.1 is tracking what to hide, frame by frame'];
+    const names = ['Muse Wonder is watching the video', 'SAM 3.1 is tracking what to hide, frame by frame'];
     let s = 0; const show = () => { $('result').innerHTML = '<p><b>Checking…</b></p><ul class="steps">' + names.map((n, i) => `<li class="${i < s ? 'done' : ''}">${n}</li>`).join('') + '</ul>'; };
     show(); const timer = setInterval(() => { s = Math.min(s + 1, 1); show(); }, 12000);
     try {
@@ -234,17 +286,26 @@
 
   const fmt = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
   function showVideo(r) {
+    last = { kind: 'video', r };
     const tracks = ((r.harm && r.harm.tracks) || []).filter(t => t.privacy || r.harm.harmful);
     video = { result: r, tracks, blurOn: true };
-    $('result').innerHTML = `
-      <span class="verdict v-${esc(r.verdict)}">${esc(r.label)}</span>${r.verdict === 'likely_ai' && r.confidence != null ? `<span class="certain">${Math.round(r.confidence * 100)}% confident</span>` : ''}
+    const harmful = tracks.filter(t => !t.privacy);
+    const hiddenList = harmful.length ? ` SAM 3.1 tracked ${harmful.map(t => `the <b>${esc(t.what)}</b> through ${Object.keys(t.boxes).length} frames`).join(' and ')}; it's blurred as the video plays.` : '';
+    const evidence = (r.signs || []).length ? `<h2>Evidence</h2><ol class="times">${r.signs.map(s => `<li>${s.at != null ? `<button type="button" data-at="${s.at}">${fmt(s.at)}</button>` : ''}<span class="what">${esc(s.what || 'Moment')}</span>: ${esc(s.why)}</li>`).join('')}</ol>` : '';
+    const facts = `<p class="meta">${r.width}×${r.height}, ${r.duration.toFixed(1)} seconds, ${r.frameTimes.length} frames.</p>`;
+    $('result').innerHTML = mode === 'real' ? `
+      ${verdictPill(r)}
       <p class="summary">${esc(r.summary)}</p>
       ${editsHtml(r.edits)}
-      ${r.harm && r.harm.harmful ? `<div class="harm"><h3>Not safe to post: ${esc(HARM[r.harm.category] || 'harmful')}</h3>${esc(r.harm.reason)}
-        ${tracks.some(t => !t.privacy) ? ` SAM 3.1 tracked ${tracks.filter(t => !t.privacy).map(t => `the <b>${esc(t.what)}</b> through ${Object.keys(t.boxes).length} frames`).join(' and ')}; it's blurred as the video plays.` : ' Hiding parts of it wouldn\'t make it safe.'}</div>` : ''}
+      ${evidence}
+      ${harmHtml(r, harmful.length)}
       ${privacyHtml(tracks.filter(t => t.privacy).map(t => t.what))}
-      ${(r.signs || []).length ? `<h2>Evidence</h2><ol class="times">${r.signs.map(s => `<li>${s.at != null ? `<button type="button" data-at="${s.at}">${fmt(s.at)}</button>` : ''}<span class="what">${esc(s.what || 'Moment')}</span>: ${esc(s.why)}</li>`).join('')}</ol>` : ''}
-      <p class="meta">${r.width}×${r.height}, ${r.duration.toFixed(1)} seconds, ${r.frameTimes.length} frames.</p>`;
+      ${facts}` : `
+      ${harmHtml(r, hiddenList)}
+      ${privacyHtml(tracks.filter(t => t.privacy).map(t => t.what))}
+      ${aiAside(r)}
+      ${facts}`;
+    for (const a of document.querySelectorAll('[data-goto]')) a.onclick = e => { e.preventDefault(); setMode(a.dataset.goto); };
     for (const b of document.querySelectorAll('[data-at]')) b.onclick = () => { $('vid').currentTime = Number(b.dataset.at); $('vid').play(); };
     $('tools').style.display = tracks.length ? 'flex' : 'none';
     $('toggle').textContent = 'Show original';
@@ -357,12 +418,15 @@
   };
 
   $('file').onchange = e => check(e.target.files[0]);
+  for (const b of document.querySelectorAll('.modes button')) b.onclick = () => setMode(b.dataset.mode);
+  $('result').innerHTML = `<p class="empty">${MODES[mode].empty}</p>`;
+  setMode(mode);
   for (const b of document.querySelectorAll('[data-sample]')) b.onclick = async e => {
     e.preventDefault(); e.stopPropagation();
     const blob = await (await fetch('/samples/' + b.dataset.sample)).blob();
     check(new File([blob], b.dataset.sample, { type: blob.type }));
   };
-  $('again').onclick = () => { setSafe(false); stopVideoBlur(); video = null; $('vid').pause(); $('vstage').style.display = 'none'; $('tools').style.display = 'none'; $('stage').style.display = 'none'; $('drop').style.display = ''; $('again').style.display = 'none'; $('file').value = ''; $('result').innerHTML = '<p class="empty">Drop another photo or video to check it.</p>'; };
+  $('again').onclick = () => { setSafe(false); stopVideoBlur(); video = null; $('vid').pause(); $('vstage').style.display = 'none'; $('tools').style.display = 'none'; $('stage').style.display = 'none'; $('drop').style.display = ''; $('again').style.display = 'none'; $('file').value = ''; last = null; $('result').innerHTML = `<p class="empty">${MODES[mode].empty}</p>`; };
   const drop = $('drop');
   drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
   drop.ondragleave = () => drop.classList.remove('over');

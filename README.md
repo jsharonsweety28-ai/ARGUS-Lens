@@ -93,6 +93,10 @@ npm run demo             # http://localhost:8800
 
 Put your key in `.env.local` (never committed): `MODEL_API_KEY=your-key`.
 
+The demo page has two sections, both running the same single check:
+- **Is this real?** (for viewers): the AI verdict first, with the evidence outlined on the picture; harm is described ("shows someone's private information, blurred on your screen").
+- **Check before posting** (for your own photo or video): "Not safe to post" with the reason, or "OK to post"; the harmful parts and privacy details outlined and blurred, and a safe copy to download; the AI result as a short note. Open it directly with `#post`.
+
 The demo has three samples, all made for this project: a parcel whose shipping label shows a (made-up) name, address and phone number and a café photo (both by Muse Image), and a 6-second video panning across the parcel (recorded in the browser from that image).
 
 ## Browser extension
