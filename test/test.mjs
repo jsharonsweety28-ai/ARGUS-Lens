@@ -74,8 +74,8 @@ assert.equal(r.verdict, 'no_ai_signs', 'an "authentic" answer is never passed on
 
 // The second look runs only when the first found nothing; only a confident answer with evidence counts.
 const clean = answer({ verdict: 'no_ai_signs', confidence: 0.8, summary: 'Friends on a beach.', signs: [] });
-r = await createLens({ ask: clean, lookAgain: answer({ verdict: 'likely_ai', confidence: 0.82, signs: [{ what: 'arm on the right', why: 'The arm belongs to nobody.', box: [900, 500, 1000, 800] }] }), segment: noSam }).assess(photo);
-assert.equal(r.verdict, 'likely_ai'); assert.equal(r.signs[0].what, 'arm on the right'); assert.equal(r.summary, 'Friends on a beach.');
+r = await createLens({ ask: clean, lookAgain: answer({ verdict: 'likely_ai', confidence: 0.82, summary: 'Four friends on a beach; one arm belongs to nobody.', signs: [{ what: 'arm on the right', why: 'The arm belongs to nobody.', box: [900, 500, 1000, 800] }] }), segment: noSam }).assess(photo);
+assert.equal(r.verdict, 'likely_ai'); assert.equal(r.signs[0].what, 'arm on the right'); assert.equal(r.summary, 'Four friends on a beach; one arm belongs to nobody.', 'the first summary ("nothing found") is replaced');
 for (const again of [answer({ verdict: 'likely_ai', confidence: 0.5, signs: [sign] }), answer({ verdict: 'likely_ai', confidence: 0.9, signs: [] }), async () => { throw new Error('timeout'); }]) {
   assert.equal((await createLens({ ask: clean, lookAgain: again, segment: noSam }).assess(photo)).verdict, 'no_ai_signs');
 }

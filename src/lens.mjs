@@ -116,7 +116,8 @@ export function createLens({ ask, lookAgain, segment, minConfidence = 0.6, reaso
       try {
         const again = cleanAssessment(parseJson(await lookAgain(dataUrl)));
         if (again.verdict === 'likely_ai' && again.confidence >= minConfidence && again.signs.length) {
-          model = { ...model, verdict: 'likely_ai', confidence: again.confidence, signs: again.signs, secondLook: true };
+          // The first summary may say nothing was found, so the second look's summary replaces it.
+          model = { ...model, verdict: 'likely_ai', confidence: again.confidence, signs: again.signs, summary: again.summary || 'A closer look found signs of AI generation.', secondLook: true };
         }
       } catch { /* keep the first answer */ }
     }

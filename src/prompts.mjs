@@ -77,5 +77,5 @@ Only list what you can actually point to in this image. The overall look (golden
 - "no_ai_signs": after all six steps you found none.
 
 Return ONLY this JSON, on one line:
-{"verdict": "likely_ai" | "no_ai_signs", "confidence": <0.0–1.0>, "signs": [{"what": "<short noun phrase naming the area>", "why": "<one plain sentence>", "box": [x1, y1, x2, y2]}]}
+{"verdict": "likely_ai" | "no_ai_signs", "confidence": <0.0–1.0>, "summary": "<one plain sentence for a viewer: what the image shows and, if you found signs, the main one>", "signs": [{"what": "<short noun phrase naming the area>", "why": "<one plain sentence>", "box": [x1, y1, x2, y2]}]}
 Boxes are on a 0–1000 grid, (0,0) top-left. At most 4 signs, strongest first. Never invent a sign you cannot see.`;
