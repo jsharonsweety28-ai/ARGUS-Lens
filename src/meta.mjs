@@ -28,7 +28,7 @@ function outputText(data) {
 /**
  * One Responses API call. content = the user message's parts (input_text / input_image).
  * stream: SAM 3.1 streams its answer; we read the deltas and return the whole text.
- * Retries rate limits and server errors twice; never retries a timeout or a client error.
+ * Retries rate limits, server errors and dropped connections twice; never retries a timeout or a client error.
  */
 export async function respond({ model, content, stream = false, extra = {}, timeoutMs = 60000 }) {
   const key = apiKey();
@@ -42,7 +42,10 @@ export async function respond({ model, content, stream = false, extra = {}, time
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       });
     } catch (err) {
-      throw new ModelError(err?.name === 'TimeoutError' ? 'The model took too long to answer.' : 'The model could not be reached.');
+      if (err?.name === 'TimeoutError') throw new ModelError('The model took too long to answer.');
+      // A dropped connection (it happens under load) is retried like a server error.
+      if (attempt < 2) { await new Promise(r => setTimeout(r, 1500 * (attempt + 1) + Math.random() * 500)); continue; }
+      throw new ModelError('The model could not be reached.');
     }
     if ((res.status === 429 || res.status >= 500) && attempt < 2) { await new Promise(r => setTimeout(r, 1500 * (attempt + 1) + Math.random() * 500)); continue; }
     if (!res.ok) {
