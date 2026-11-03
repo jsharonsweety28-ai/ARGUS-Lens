@@ -133,12 +133,21 @@
     $('result').innerHTML = '<p><b>Checking…</b></p><ul class="steps">' + names.map((n, i) => `<li class="${i < done ? 'done' : ''}">${n}</li>`).join('') + '</ul>';
   }
 
+  // The hosted demo (Vercel) takes uploads up to 4 MB; running locally takes 10 MB photos and 20 MB videos.
+  const HOSTED = !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  function tooBig(file) {
+    if (!HOSTED || file.size <= 4 * 1024 * 1024) return false;
+    $('result').innerHTML = `<p>This file is ${(file.size / 1048576).toFixed(1)} MB. The hosted demo takes files up to 4 MB: try a smaller one, or run Argus Lens locally (see the README) for bigger files.</p>`;
+    return true;
+  }
+
   async function check(file) {
     if (file && (file.type.startsWith('video/') || /\.(mov|mp4|m4v|webm|mkv)$/i.test(file.name))) return checkVideo(file);
     $('vstage').style.display = 'none'; stopVideoBlur(); video = null; $('vid').pause();
     $('toggle').textContent = 'Show original'; $('download').textContent = 'Download blurred image';
     if (file && /\.(heic|heif)$/i.test(file.name)) { $('result').innerHTML = '<p>iPhone HEIC photos can\'t be opened in the browser. Share or export the photo as JPEG and try again.</p>'; return; }
     if (!file || !/^image\/(jpeg|png|webp|gif)$/.test(file.type)) { $('result').innerHTML = '<p>Please choose a photo (JPEG, PNG, WebP or GIF) or a video.</p>'; return; }
+    if (tooBig(file)) return;
     const url = URL.createObjectURL(file);
     $('img').src = url; $('drop').style.display = 'none'; $('stage').style.display = 'block'; $('again').style.display = 'inline-block';
     $('overlay').innerHTML = ''; setSafe(false); $('tools').style.display = 'none';
@@ -272,6 +281,7 @@
     try { const mp4 = await toMp4(file); if (mp4 !== file) { file = mp4; vid.src = URL.createObjectURL(file); } } // play what Lens checks, so the blur lines up
     catch (e) { $('result').innerHTML = `<p>${esc(e.message)}</p>`; return; }
     if (file.size > 20 * 1024 * 1024) { $('result').innerHTML = '<p>Videos up to 20 MB for now.</p>'; return; }
+    if (tooBig(file)) return;
     const names = ['Muse Wonder is watching the video', 'SAM 3.1 is tracking what to hide, frame by frame'];
     let s = 0; const show = () => { $('result').innerHTML = '<p><b>Checking…</b></p><ul class="steps">' + names.map((n, i) => `<li class="${i < s ? 'done' : ''}">${n}</li>`).join('') + '</ul>'; };
     show(); const timer = setInterval(() => { s = Math.min(s + 1, 1); show(); }, 12000);

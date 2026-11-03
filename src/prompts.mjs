@@ -58,3 +58,24 @@ Give at most 4 signs, strongest first. Never invent a sign you cannot see.
 
 Return ONLY this JSON, on one line:
 {"verdict": "likely_ai" | "no_ai_signs" | "cant_tell", "confidence": <0.0–1.0>, "kind": "photo" | "illustration" | "screenshot" | "meme" | "other", "summary": "<one plain sentence for a viewer>", "edits": [{"type": "color_filter" | "beauty_filter" | "ar_lens" | "ai_lens" | "stickers_or_text", "what": "<a few plain words, e.g. 'rainbow colour filter'>"}], "signs": [{"what": "...", "why": "...", "box": [x1, y1, x2, y2]}], "harm": {"harmful": <true|false>, "category": "none" | "violence" | "sexual" | "hate" | "threat" | "doxxing" | "self_harm" | "deceptive_fake", "reason": "<one plain sentence, or empty>", "regions": [{"what": "...", "box": [x1, y1, x2, y2]}]}, "privacy": [{"what": "...", "box": [x1, y1, x2, y2]}]}`;
+
+// The second, slower look, only for images the first answer found no AI signs in. Clean AI photos
+// hide their mistakes where people don't look: arms that belong to nobody, ropes tied to nothing,
+// ripples with no cause, labels with counting-digit phone numbers.
+export const SECOND_LOOK_PROMPT = `A first look at this image found no obvious AI mistakes. Take a slower, forensic second look: modern AI photos hide their mistakes in places people don't check. Work through every step below, looking at the image itself, before you answer.
+
+1. Bodies. For each person, count their arms and hands and follow each arm from the shoulder to the hand. Is any arm or hand left over, missing, or attached to nobody? In a selfie, who holds the camera? Only one or two arms can be reaching toward it, and each must belong to someone. Check fingers, fingernails, ears, earrings (do both match?), teeth (a uniform white strip instead of separate teeth?) and where hair meets skin.
+2. Contact and attachment. Where things touch (fingers wrapped round a cup or handle: count them and check which hand each belongs to; a hand on a shoulder; a rope or cable tied to something, a label stuck on a box, a person on a chair), do they really connect? Ropes and cables must start and end somewhere real; a label on a box must follow the box's surface and edges; tape must wrap the way tape does.
+3. Reflections, shadows and cause. Does each reflection in water, glass or metal match the object above it (same shape, same position, right side), and does every object over water have one? Do shadows fall the same way for everything, toward the side away from the light, and is the sun or lamp where the light says it is? Ripples, splashes, steam and mist need a cause: rings spreading around a still object, or light coming from two directions, are signs.
+4. Text and printing. Read every word. Real labels, signs and packaging have a real company or brand, real-looking codes and small print with uneven wear. Generic text ("EXPRESS DELIVERY" with no company), perfectly crisp lines on a worn object, or codes that are just counting digits are signs.
+5. Background. Look at the edges and the blurred background: objects that dissolve, merge, repeat, or make no sense (half a chair, a window that bends, a tree growing out of a roof).
+6. Geometry. Planks, tiles, railings, table edges, door frames: straight, evenly spaced, and lined up where they should be?
+
+Only list what you can actually point to in this image. The overall look (golden light, perfect smiles, beautiful scenery, shallow focus) is NOT a sign by itself: professional and phone photos look like that too. Real photos have flaws of their own (noise, blur, odd framing): those are not AI signs.
+
+- "likely_ai": you found at least one concrete mistake from the steps above.
+- "no_ai_signs": after all six steps you found none.
+
+Return ONLY this JSON, on one line:
+{"verdict": "likely_ai" | "no_ai_signs", "confidence": <0.0–1.0>, "signs": [{"what": "<short noun phrase naming the area>", "why": "<one plain sentence>", "box": [x1, y1, x2, y2]}]}
+Boxes are on a 0–1000 grid, (0,0) top-left. At most 4 signs, strongest first. Never invent a sign you cannot see.`;

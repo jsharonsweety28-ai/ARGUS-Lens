@@ -65,7 +65,20 @@ code ────────► the result           A label in the file beats 
 | Real photos wrongly called AI | 0 of 9 | **0 of 9** |
 | Seconds per check | 11.2 | 12.5 |
 
-Wonder costs about 4× more per check, and it's worth it: it caught the impossible scenes (an adult on a small toy, even with a filter and caption over it), garbled shop signs, and a Snapchat AI image with its watermark removed, and it was consistent between runs. Very clean AI photos with no visible mistake are still missed by both, and Lens says "no signs of AI found" for them, never "real".
+Wonder costs about 4× more per check, and it's worth it: it caught the impossible scenes (an adult on a small toy, even with a filter and caption over it), garbled shop signs, and a Snapchat AI image with its watermark removed, and it was consistent between runs.
+
+### The second look
+
+The 4 AI images Wonder missed were very clean: a beach selfie, a woman in a cafe, a mountain lake, a parcel on a doorstep. So when the first answer finds nothing, Lens asks Wonder for a slower second look with a forensic checklist: follow every arm to a body, check what touches what (ropes, labels, hands on cups), reflections and the cause of every ripple, and whether text and codes look like real printing. A second look only changes the verdict when it is confident and points at evidence.
+
+| Same 20 images, twice each, full pipeline | Before | With the second look |
+|---|---|---|
+| AI images caught in both runs | 7 of 11 | **9 of 11** |
+| AI images caught in only one run | 0 | 1 |
+| Real photos wrongly called AI | 0 of 9 | **0 of 9** |
+| Seconds per check | 12.5 | 21 (only clean-looking images get the second look) |
+
+What it found: an arm around the woman on the right that belongs to nobody, and two people both holding the selfie camera; a phone number and tracking code made of counting digits (98765 43210), a label that stays flat across the box's edge, and "EXPRESS DELIVERY" over "DELIVERY: STANDARD"; ripple rings spreading round a boat that's tied up and still, and a mooring rope that doesn't reach the boat. The cafe photo still shows no mistake anyone can point to, so Lens says "no signs of AI found" for it, never "real". The checklist was written after looking at these misses, so expect a lower catch rate on new images.
 
 ### Harm check
 

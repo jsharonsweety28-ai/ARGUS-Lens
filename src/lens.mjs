@@ -11,7 +11,7 @@ import { buildObjectPrompt, decodeMaskToSVGPath, frameIndexOf, parseImageStream,
 import { MODELS, parseJson, respond, respondEvents } from './meta.mjs';
 import { provenance } from './provenance.mjs';
 import { mp4Info } from './mp4.mjs';
-import { ASSESS_PROMPT, VIDEO_PROMPT } from './prompts.mjs';
+import { ASSESS_PROMPT, SECOND_LOOK_PROMPT, VIDEO_PROMPT } from './prompts.mjs';
 
 // The model can only say it found AI signs, found none, or can't tell. Looking at a picture
 // can never show it's real, so there is no "authentic" verdict.
@@ -77,9 +77,20 @@ function cleanAssessment(raw) {
 /**
  * options.ask(dataUrl) → Muse Spark's raw text answer (default: the Meta Model API).
  * options.segment({ dataUrl, width, height, items: [{ id, box }] }) → [{ id, box, path }] (default: SAM 3.1).
+ * options.lookAgain(dataUrl) → the raw answer to SECOND_LOOK_PROMPT, asked only when the first
+ *   answer found no AI signs (default: Muse Wonder when `ask` is the default, else skipped).
  * options.minConfidence: a "likely AI" answer below this becomes "can't tell" (default 0.6).
  */
-export function createLens({ ask, segment, minConfidence = 0.6, reasoning = 'medium', model: judge = process.env.LENS_MODEL || MODELS.wonder } = {}) {
+export function createLens({ ask, lookAgain, segment, minConfidence = 0.6, reasoning = 'medium', model: judge = process.env.LENS_MODEL || MODELS.wonder } = {}) {
+  // The second look: on the 4 label-stripped AI images the first answer missed, it caught 3 (an arm
+  // attached to nobody in a selfie, a parcel label with counting-digit numbers, ripples round a
+  // moored boat), with no false alarms on 9 real photos, each run twice.
+  if (!ask) lookAgain ??= dataUrl => respond({
+    model: judge,
+    content: [{ type: 'input_text', text: SECOND_LOOK_PROMPT }, { type: 'input_image', image_url: dataUrl }],
+    extra: { reasoning: { effort: reasoning } },
+    timeoutMs: 90000,
+  });
   // The image judge is Muse Wonder: on 11 AI images with their labels stripped it caught 7 in both
   // runs (Muse Spark: 2, plus 2 only sometimes), with no false alarms on 9 real photos for either.
   ask ??= dataUrl => respond({
@@ -97,6 +108,17 @@ export function createLens({ ask, segment, minConfidence = 0.6, reasoning = 'med
     let model = null, modelError = null;
     try { model = cleanAssessment(parseJson(await ask(dataUrl))); }
     catch (err) { modelError = err?.message || 'The model could not be reached.'; }
+
+    // Nothing found: look again, slower. Only a confident answer with evidence changes the verdict;
+    // if the second look fails, the first answer stands.
+    if (model && model.verdict === 'no_ai_signs' && !prov.aiLabel && lookAgain) {
+      try {
+        const again = cleanAssessment(parseJson(await lookAgain(dataUrl)));
+        if (again.verdict === 'likely_ai' && again.confidence >= minConfidence && again.signs.length) {
+          model = { ...model, verdict: 'likely_ai', confidence: again.confidence, signs: again.signs, secondLook: true };
+        }
+      } catch { /* keep the first answer */ }
+    }
 
     // The verdict. A label in the file is a fact; otherwise the model's careful opinion.
     let verdict, certain = false, summary;

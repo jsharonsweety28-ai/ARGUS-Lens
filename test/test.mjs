@@ -72,6 +72,17 @@ assert.equal(r.signs.length, 0, 'no "looks real" evidence is ever listed');
 r = await createLens({ ask: answer({ verdict: 'likely_authentic', confidence: 0.95, signs: [] }), segment: noSam }).assess(photo);
 assert.equal(r.verdict, 'no_ai_signs', 'an "authentic" answer is never passed on as proof');
 
+// The second look runs only when the first found nothing; only a confident answer with evidence counts.
+const clean = answer({ verdict: 'no_ai_signs', confidence: 0.8, summary: 'Friends on a beach.', signs: [] });
+r = await createLens({ ask: clean, lookAgain: answer({ verdict: 'likely_ai', confidence: 0.82, signs: [{ what: 'arm on the right', why: 'The arm belongs to nobody.', box: [900, 500, 1000, 800] }] }), segment: noSam }).assess(photo);
+assert.equal(r.verdict, 'likely_ai'); assert.equal(r.signs[0].what, 'arm on the right'); assert.equal(r.summary, 'Friends on a beach.');
+for (const again of [answer({ verdict: 'likely_ai', confidence: 0.5, signs: [sign] }), answer({ verdict: 'likely_ai', confidence: 0.9, signs: [] }), async () => { throw new Error('timeout'); }]) {
+  assert.equal((await createLens({ ask: clean, lookAgain: again, segment: noSam }).assess(photo)).verdict, 'no_ai_signs');
+}
+let looked = false;
+await createLens({ ask: answer({ verdict: 'likely_ai', confidence: 0.9, signs: [sign] }), lookAgain: async () => { looked = true; return '{}'; }, segment: noSam }).assess(photo);
+assert.equal(looked, false, 'no second look when the first already found signs');
+
 // Filters and edits are reported apart from the verdict; unknown types and empty ones are dropped.
 r = await createLens({ ask: answer({ verdict: 'no_ai_signs', confidence: 0.8, signs: [], edits: [{ type: 'color_filter', what: 'rainbow colour filter' }, { type: 'ai_lens', what: 'anime AI lens' }, { type: 'made_up', what: 'x' }, { type: 'beauty_filter', what: '' }] }), segment: noSam }).assess(photo);
 assert.deepEqual(r.edits, [{ type: 'color_filter', what: 'rainbow colour filter' }, { type: 'ai_lens', what: 'anime AI lens' }]);

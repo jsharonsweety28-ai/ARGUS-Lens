@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/assess.mjs": { "maxDuration": 300 },
+    "api/assess-video.mjs": { "maxDuration": 300 }
+  },
+  "rewrites": [
+    { "source": "/", "destination": "/demo/index.html" },
+    { "source": "/test", "destination": "/extension/test/feed.html" },
+    { "source": "/ext/content.js", "destination": "/extension/content.js" },
+    { "source": "/samples/:file", "destination": "/demo/samples/:file" }
+  ]
+}
