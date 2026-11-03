@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 chrome.storage.sync.get(['server', 'auto', 'limit']).then(({ server, auto, limit }) => {
-  $('server').value = server || 'http://localhost:8800';
+  $('server').value = server || 'https://arguslens-ten.vercel.app';
   $('auto').checked = auto === true;
   $('limit').value = limit || 10;
 });

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Argus Lens: is this image real?",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Checks images on Instagram, Reddit, YouTube and anywhere else for signs of AI generation and private details, and shows the evidence on the image.",
   "permissions": ["contextMenus", "storage", "scripting", "activeTab"],
   "host_permissions": ["<all_urls>"],

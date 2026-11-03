@@ -1,6 +1,6 @@
 // Fetches the image the user asked about and sends it to the Argus Lens server. The extension
 // holds no model key: the server calls Muse Spark and SAM 3.1.
-const DEFAULT_SERVER = 'http://localhost:8800';
+const DEFAULT_SERVER = 'https://arguslens-ten.vercel.app';
 
 async function server() {
   const { server } = await chrome.storage.sync.get('server');
@@ -18,7 +18,7 @@ async function imageBytes(url) {
 
 async function assess(url) {
   const blob = await imageBytes(url);
-  if (blob.size > 10 * 1024 * 1024) throw new Error('Images up to 10 MB.');
+  if (blob.size > 4 * 1024 * 1024) throw new Error('Images up to 4 MB.');
   return assessBlob(blob);
 }
 

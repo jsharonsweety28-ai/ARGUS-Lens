@@ -2,6 +2,8 @@
 
 > Is this image real? Argus Lens shows the evidence, not just a guess.
 
+**Live demo: [arguslens-ten.vercel.app](https://arguslens-ten.vercel.app)** · the extension's stand-in feed: [/test](https://arguslens-ten.vercel.app/test). The hosted demo takes files up to 4 MB; run it locally for bigger ones.
+
 Argus Lens checks images in social media posts for signs of AI generation and for harmful content. Instead of a bare "AI / not AI" label, it gives a careful assessment with the evidence outlined on the image:
 
 - **Labelled as AI-made**: the file itself says so. Certain.
@@ -73,12 +75,11 @@ The 4 AI images Wonder missed were very clean: a beach selfie, a woman in a cafe
 
 | Same 20 images, twice each, full pipeline | Before | With the second look |
 |---|---|---|
-| AI images caught in both runs | 7 of 11 | **9 of 11** |
-| AI images caught in only one run | 0 | 1 |
+| AI images caught in both runs | 7 of 11 | **10 of 11** |
 | Real photos wrongly called AI | 0 of 9 | **0 of 9** |
-| Seconds per check | 12.5 | 21 (only clean-looking images get the second look) |
+| Seconds per check | 12.5 | about 20–30 (only clean-looking images get the second look) |
 
-What it found: an arm around the woman on the right that belongs to nobody, and two people both holding the selfie camera; a phone number and tracking code made of counting digits (98765 43210), a label that stays flat across the box's edge, and "EXPRESS DELIVERY" over "DELIVERY: STANDARD"; ripple rings spreading round a boat that's tied up and still, and a mooring rope that doesn't reach the boat. The cafe photo still shows no mistake anyone can point to, so Lens says "no signs of AI found" for it, never "real". The checklist was written after looking at these misses, so expect a lower catch rate on new images.
+What it found: an arm around the woman on the right that belongs to nobody, and two people both holding the selfie camera; a phone number and tracking code made of counting digits (98765 43210), a label that stays flat across the box's edge, and "EXPRESS DELIVERY" over "DELIVERY: STANDARD"; ripple rings spreading round a boat that's tied up and still, and a mooring rope that doesn't reach the boat; and in the flower market, Tamil lettering on the shop signs that is malformed or repeats the same word (it was caught only sometimes before; with the second look reading every small sign, 4 of 4 times). The real photos include two Chennai street markets full of real Tamil signs, and none was flagged. The cafe photo still shows no mistake anyone can point to, so Lens says "no signs of AI found" for it, never "real". The checklist was written after looking at these misses, so expect a lower catch rate on new images.
 
 ### Harm check
 
@@ -120,11 +121,12 @@ The demo has three samples, all made for this project: a parcel whose shipping l
 
 **Automatic checks** (off by default, a switch in the extension's settings): as you scroll your own feed, each image that comes on screen is checked once and gets its verdict label, and private details are blurred, with no clicking. It only reads images your browser has already loaded for you; it never visits pages or collects posts. Automatic checks are capped per minute (10 by default) to protect your API credits, results are remembered so nothing is checked twice, and icons and avatars are skipped.
 
-1. Run the server: `npm run demo`.
-2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and choose the `extension` folder.
-3. Open Instagram or Reddit, hover over an image, click **Check**.
+1. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and choose the `extension` folder.
+2. Open Instagram or Reddit, hover over an image, click **Check**.
 
-To try it without logging in anywhere, open `http://localhost:8800/test` (or `/test?auto=1` for automatic checks): a stand-in feed with the two sample images, running the same content script.
+It uses the live demo server by default. To use your own, run `npm run demo` and set `http://localhost:8800` in the extension's settings.
+
+To try it without logging in anywhere, open [arguslens-ten.vercel.app/test](https://arguslens-ten.vercel.app/test) (or `/test?auto=1` for automatic checks): a stand-in feed with the two sample images, running the same content script.
 
 ## Status
 

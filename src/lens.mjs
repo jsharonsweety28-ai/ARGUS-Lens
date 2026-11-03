@@ -97,6 +97,7 @@ export function createLens({ ask, lookAgain, segment, minConfidence = 0.6, reaso
     model: judge,
     content: [{ type: 'input_text', text: ASSESS_PROMPT }, { type: 'input_image', image_url: dataUrl }],
     extra: { reasoning: { effort: reasoning } },
+    timeoutMs: 90000,
   });
   segment ??= samOutlines;
 
