@@ -106,20 +106,25 @@ export function createLens({ ask, lookAgain, segment, minConfidence = 0.6, reaso
     if (prov.type === 'unknown') return { verdict: 'unavailable', label: LABELS.unavailable, summary: 'This file is not a JPEG, PNG, WebP or GIF image.', signs: [], harm: null, provenance: prov };
     const dataUrl = `data:${mimeOf(prov.type)};base64,${Buffer.from(bytes).toString('base64')}`;
 
+    // The second look starts at the same time as the first, so a check takes about as long as one
+    // look (one after the other took up to a minute, past the hosting limit). It is only used when
+    // the first look found nothing; a failed second look is ignored.
+    const second = lookAgain && !prov.aiLabel ? lookAgain(dataUrl).then(parseJson).then(cleanAssessment).catch(() => null) : null;
+
     let model = null, modelError = null;
     try { model = cleanAssessment(parseJson(await ask(dataUrl))); }
     catch (err) { modelError = err?.message || 'The model could not be reached.'; }
 
-    // Nothing found: look again, slower. Only a confident answer with evidence changes the verdict;
-    // if the second look fails, the first answer stands.
-    if (model && model.verdict === 'no_ai_signs' && !prov.aiLabel && lookAgain) {
-      try {
-        const again = cleanAssessment(parseJson(await lookAgain(dataUrl)));
+    // Nothing found: use the second, forensic look. Only a confident answer with evidence changes
+    // the verdict; otherwise the first answer stands.
+    if (model && model.verdict === 'no_ai_signs' && second) {
+      const again = await second;
+      if (again) {
         if (again.verdict === 'likely_ai' && again.confidence >= minConfidence && again.signs.length) {
           // The first summary may say nothing was found, so the second look's summary replaces it.
           model = { ...model, verdict: 'likely_ai', confidence: again.confidence, signs: again.signs, summary: again.summary || 'A closer look found signs of AI generation.', secondLook: true };
         }
-      } catch { /* keep the first answer */ }
+      }
     }
 
     // The verdict. A label in the file is a fact; otherwise the model's careful opinion.

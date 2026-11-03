@@ -79,9 +79,11 @@ assert.equal(r.verdict, 'likely_ai'); assert.equal(r.signs[0].what, 'arm on the 
 for (const again of [answer({ verdict: 'likely_ai', confidence: 0.5, signs: [sign] }), answer({ verdict: 'likely_ai', confidence: 0.9, signs: [] }), async () => { throw new Error('timeout'); }]) {
   assert.equal((await createLens({ ask: clean, lookAgain: again, segment: noSam }).assess(photo)).verdict, 'no_ai_signs');
 }
+r = await createLens({ ask: answer({ verdict: 'likely_ai', confidence: 0.9, signs: [sign] }), lookAgain: answer({ verdict: 'likely_ai', confidence: 0.95, signs: [{ what: 'other', why: 'Other.', box: [1, 1, 9, 9] }] }), segment: noSam }).assess(photo);
+assert.equal(r.signs[0].what, 'left hand', 'when the first look found signs, its evidence is kept');
 let looked = false;
-await createLens({ ask: answer({ verdict: 'likely_ai', confidence: 0.9, signs: [sign] }), lookAgain: async () => { looked = true; return '{}'; }, segment: noSam }).assess(photo);
-assert.equal(looked, false, 'no second look when the first already found signs');
+await createLens({ ask: answer({ verdict: 'likely_ai', confidence: 0.9, signs: [sign] }), lookAgain: async () => { looked = true; return '{}'; }, segment: noSam }).assess(jpeg(800, 800, [[0xe1, bytes('xmp trainedAlgorithmicMedia')]]));
+assert.equal(looked, false, 'no second look when the file is labelled as AI');
 
 // Filters and edits are reported apart from the verdict; unknown types and empty ones are dropped.
 r = await createLens({ ask: answer({ verdict: 'no_ai_signs', confidence: 0.8, signs: [], edits: [{ type: 'color_filter', what: 'rainbow colour filter' }, { type: 'ai_lens', what: 'anime AI lens' }, { type: 'made_up', what: 'x' }, { type: 'beauty_filter', what: '' }] }), segment: noSam }).assess(photo);

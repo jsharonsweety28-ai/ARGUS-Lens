@@ -134,6 +134,8 @@
   }
 
   // The hosted demo (Vercel) takes uploads up to 4 MB; running locally takes 10 MB photos and 20 MB videos.
+  // A dropped connection shows as "Failed to fetch": say what it means instead.
+  const failText = e => /failed to fetch|networkerror|load failed/i.test(e.message) ? "We couldn't finish checking this: the connection dropped or the check took too long. That doesn't mean it's real or fake. Please try again." : e.message;
   const HOSTED = !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
   if (HOSTED) document.querySelector('#drop .meta').textContent = 'Photos: JPEG, PNG, WebP or GIF · Videos: MP4, MOV, WebM and more, up to 60 seconds · Files up to 4 MB here';
   function tooBig(file) {
@@ -158,7 +160,7 @@
       const r = await res.json();
       if (!res.ok) throw new Error(r.error || 'Lens could not check this image.');
       show(r);
-    } catch (e) { $('result').innerHTML = `<p>${esc(e.message)}</p>`; }
+    } catch (e) { $('result').innerHTML = `<p>${esc(failText(e))}</p>`; }
     finally { clearInterval(timer); }
   }
 
@@ -280,7 +282,7 @@
     $('drop').style.display = 'none'; $('stage').style.display = 'none'; $('vstage').style.display = 'block';
     $('again').style.display = 'inline-block'; $('tools').style.display = 'none'; video = null;
     try { const mp4 = await toMp4(file); if (mp4 !== file) { file = mp4; vid.src = URL.createObjectURL(file); } } // play what Lens checks, so the blur lines up
-    catch (e) { $('result').innerHTML = `<p>${esc(e.message)}</p>`; return; }
+    catch (e) { $('result').innerHTML = `<p>${esc(failText(e))}</p>`; return; }
     if (file.size > 20 * 1024 * 1024) { $('result').innerHTML = '<p>Videos up to 20 MB for now.</p>'; return; }
     if (tooBig(file)) return;
     const names = ['Muse Wonder is watching the video', 'SAM 3.1 is tracking what to hide, frame by frame'];
@@ -291,7 +293,7 @@
       const r = await res.json();
       if (!res.ok) throw new Error(r.error || 'Lens could not check this video.');
       showVideo(r);
-    } catch (e) { $('result').innerHTML = `<p>${esc(e.message)}</p>`; }
+    } catch (e) { $('result').innerHTML = `<p>${esc(failText(e))}</p>`; }
     finally { clearInterval(timer); }
   }
 

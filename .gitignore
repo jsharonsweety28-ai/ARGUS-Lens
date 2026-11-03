@@ -8,3 +8,5 @@ node_modules/
 .claude/
 test/images/
 test-images/
+argus-lens-demo.webm
+submission-answers.md
