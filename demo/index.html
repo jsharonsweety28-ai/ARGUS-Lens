@@ -129,7 +129,7 @@
   }
 
   function steps(done) {
-    const names = ['Reading labels in the file', 'Muse Wonder is looking at the image', 'SAM 3.1 is outlining the evidence'];
+    const names = ['Reading labels in the file', 'Muse Wonder is analysing the image', 'SAM 3.1 is outlining the evidence'];
     $('result').innerHTML = '<p><b>Checking…</b></p><ul class="steps">' + names.map((n, i) => `<li class="${i < done ? 'done' : ''}">${n}</li>`).join('') + '</ul>';
   }
 
@@ -278,6 +278,7 @@
 
   async function checkVideo(file) {
     const vid = $('vid');
+    stopVideoBlur();
     vid.src = URL.createObjectURL(file);
     $('drop').style.display = 'none'; $('stage').style.display = 'none'; $('vstage').style.display = 'block';
     $('again').style.display = 'inline-block'; $('tools').style.display = 'none'; video = null;
@@ -285,7 +286,7 @@
     catch (e) { $('result').innerHTML = `<p>${esc(failText(e))}</p>`; return; }
     if (file.size > 20 * 1024 * 1024) { $('result').innerHTML = '<p>Videos up to 20 MB for now.</p>'; return; }
     if (tooBig(file)) return;
-    const names = ['Muse Wonder is watching the video', 'SAM 3.1 is tracking what to hide, frame by frame'];
+    const names = ['Muse Wonder is analysing the video and its audio', 'SAM 3.1 is tracking what to hide, frame by frame'];
     let s = 0; const show = () => { $('result').innerHTML = '<p><b>Checking…</b></p><ul class="steps">' + names.map((n, i) => `<li class="${i < s ? 'done' : ''}">${n}</li>`).join('') + '</ul>'; };
     show(); const timer = setInterval(() => { s = Math.min(s + 1, 1); show(); }, 12000);
     try {
@@ -370,7 +371,8 @@
     $('vid').onseeked = () => tick();
     tick();
   }
-  function stopVideoBlur() { const vid = $('vid'); if (blurLoop && vid.cancelVideoFrameCallback) vid.cancelVideoFrameCallback(blurLoop); cancelAnimationFrame(blurLoop); blurLoop = 0; }
+  // Also wipes the blur canvas, so the last video's blur never sits on top of the next video.
+  function stopVideoBlur() { const vid = $('vid'), c = $('vblur'); if (blurLoop && vid.cancelVideoFrameCallback) vid.cancelVideoFrameCallback(blurLoop); cancelAnimationFrame(blurLoop); blurLoop = 0; c.getContext('2d').clearRect(0, 0, c.width, c.height); }
 
   // The blurred video, recorded in the browser: play it once, drawing each frame with its blur.
   async function downloadBlurredVideo() {

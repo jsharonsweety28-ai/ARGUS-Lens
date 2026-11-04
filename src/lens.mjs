@@ -245,7 +245,7 @@ const askVideoDefault = videoUrl => respond({
   model: process.env.LENS_VIDEO_MODEL || MODELS.wonder,
   content: [{ type: 'input_text', text: VIDEO_PROMPT }, { type: 'input_video', video_url: videoUrl }],
   extra: { reasoning: { effort: 'medium' } },
-  timeoutMs: 180000,
+  timeoutMs: 150000, // with SAM tracking (90 s), a check fits the 5-minute hosting limit
 });
 let askVideo = askVideoDefault, trackVideo = samTrack;
 /** For tests: replace the video model calls. */
@@ -256,7 +256,7 @@ export function setVideoModels({ ask, track } = {}) { askVideo = ask || askVideo
  * frame. → { [frameIndex]: [x1, y1, x2, y2] on the 0–1000 grid } (the union when several match).
  */
 export async function samTrack({ videoUrl, what, width, height }) {
-  const events = respondEvents({ model: MODELS.sam, content: [{ type: 'input_text', text: what }, { type: 'input_video', video_url: videoUrl }], timeoutMs: 180000 });
+  const events = respondEvents({ model: MODELS.sam, content: [{ type: 'input_text', text: what }, { type: 'input_video', video_url: videoUrl }], timeoutMs: 90000 });
   const result = await parseVideoStream(events).finalResult;
   const grid = (v, size) => clamp(Math.round(v * 1000 / size), 0, 1000);
   const frames = {};
